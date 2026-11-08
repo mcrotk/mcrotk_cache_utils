@@ -122,3 +122,13 @@ def test_existing_non_cache_attribute():
     d._D_f_cache = 5
     with pytest.raises(TypeError, match="already used"):
         d.f()
+
+
+def test_unhashable_argument_in_passthrough_method():
+    class P:
+        @cached_method(passthrough={"t": -1})
+        def f(self, arr, t):
+            return arr.sum(), t
+
+    with pytest.raises(TypeError, match="argument 'arr'.*ndarray is unhashable"):
+        P().f(np.zeros(2), "t")

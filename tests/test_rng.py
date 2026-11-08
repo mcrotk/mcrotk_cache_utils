@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from mcrotk_cache_utils import rng_cached_method
 
@@ -86,3 +87,65 @@ def test_rng_not_stored_in_cache():
     (stored,) = cache.values()
     assert type(key) is tuple and key == (3,)
     assert not any(isinstance(v, np.random.Generator) for v in stored.values)
+
+
+# Every kind of RNG argument numpy.random.default_rng accepts. Each entry makes a fresh one,
+# since Generators and bit generators are consumed when used.
+RNG_KINDS = {
+    "none": lambda: None,
+    "int": lambda: 42,
+    "int_array": lambda: [1, 2, 3],
+    "seed_sequence": lambda: np.random.SeedSequence(5),
+    "bit_generator": lambda: np.random.PCG64(6),
+    "generator": lambda: np.random.default_rng(7),
+}
+DETERMINISTIC = [k for k in RNG_KINDS if k != "none"]
+
+
+@pytest.mark.parametrize("kind", RNG_KINDS)
+def test_miss_with_each_rng_kind(kind):
+    s = Sim()
+    value, rng = s.draw(3, rng=RNG_KINDS[kind]())
+    assert isinstance(rng, np.random.Generator)
+    if kind != "none":
+        expected = np.random.default_rng(RNG_KINDS[kind]()).normal(size=3).sum()
+        assert value == expected  # computed with the caller's RNG, as if not cached
+
+
+@pytest.mark.parametrize("kind", RNG_KINDS)
+def test_hit_with_each_rng_kind(kind):
+    s = Sim()
+    cached_value, _ = s.draw(3, rng=0)
+    arg = RNG_KINDS[kind]()
+    value, rng = s.draw(3, rng=arg)
+    assert value == cached_value and s.runs == 1
+    assert isinstance(rng, np.random.Generator)
+    if kind == "generator":
+        assert rng is arg
+    elif kind == "bit_generator":
+        assert rng.bit_generator is arg
+    if kind in DETERMINISTIC:
+        # unused: the returned RNG continues exactly as a fresh one from the caller's argument
+        assert rng.random() == np.random.default_rng(RNG_KINDS[kind]()).random()
+
+
+def test_rng_passed_positionally():
+    s = Sim()
+    v1, _ = s.draw(3, 1)
+    g = np.random.default_rng(2)
+    v2, r = s.draw(3, g)
+    assert v2 == v1 and r is g and s.runs == 1
+
+
+def test_info_with_rng_passthrough():
+    class C:
+        @rng_cached_method(info=True)
+        def f(self, n, rng=None):
+            rng = np.random.default_rng(rng)
+            return rng.random(n).sum(), rng
+
+    c = C()
+    c.f(2, rng=1)
+    c.f(2, rng=2)
+    info = c.f.cache_info()
+    assert (info.hits, info.misses, info.currsize) == (1, 1, 1)
