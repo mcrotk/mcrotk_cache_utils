@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Personal setup and notes (not part of the published repo)
+.envrc
+CLAUDE.md
+notes/

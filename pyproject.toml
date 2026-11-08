@@ -1,0 +1,28 @@
+[project]
+name = "mcrotk-cache-utils"
+version = "0.1.0"
+description = "Per-instance method caching built on cachetools, with argument omission, pass-through and key converters (e.g. for RNG-threading functions)."
+readme = "README.md"
+authors = [
+    { name = "Michael Rotkowitz", email = "mcrotk@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "cachetools>=8",
+]
+
+[project.optional-dependencies]
+numpy = [
+    # default_rng (used by the RNG decorators) was added in numpy 1.17
+    "numpy>=1.17",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "numpy",
+    "pytest>=9.2.0",
+]
