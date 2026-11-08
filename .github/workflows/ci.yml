@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays: catches new cachetools/numpy releases (the dependency jobs don't use uv.lock)
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uv run --locked ruff check .
+      - run: uv run --locked ruff format --check .
+
+  tests:
+    # Locked dependencies (uv.lock) on every supported Python
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        include:
+          - os: macos-latest
+            python-version: "3.14"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv run --locked pytest
+
+  dependency-bounds:
+    # The oldest and newest dependency versions users can get, outside the lock file
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: minimum
+            python-version: "3.11"
+            pins: --with cachetools==8.0.0 --with numpy==1.23.2
+          - name: latest
+            python-version: "3.15"
+            pins: --refresh --with cachetools --with numpy
+    name: dependencies (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - run: uvx --python ${{ matrix.python-version }} --with-editable . ${{ matrix.pins }} pytest
