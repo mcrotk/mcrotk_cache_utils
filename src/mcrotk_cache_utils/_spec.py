@@ -50,7 +50,11 @@ class ArgSpec:
         self.qualname = getattr(func, "__qualname__", repr(func))
         self.signature = inspect.signature(func)
         self._params = list(self.signature.parameters.values())
-        if not self._params or self._params[0].kind in _VAR_KINDS or self._params[0].kind is inspect.Parameter.KEYWORD_ONLY:
+        if (
+            not self._params
+            or self._params[0].kind in _VAR_KINDS
+            or self._params[0].kind is inspect.Parameter.KEYWORD_ONLY
+        ):
             raise TypeError(f"{self.qualname}: a cached method needs a first positional parameter (self)")
         self.self_name = self._params[0].name
 
@@ -73,7 +77,9 @@ class ArgSpec:
         arguments = bound.arguments
         parts = [self._key_part(name, arguments[name]) for name in self.key_names]
         if self.passthrough:
-            key = PassthroughKey(parts, {pos: (arguments[name], transform) for name, (pos, transform) in self.passthrough.items()})
+            key = PassthroughKey(
+                parts, {pos: (arguments[name], transform) for name, (pos, transform) in self.passthrough.items()}
+            )
         else:
             key = cachetools.keys.hashkey(*parts)
         try:
@@ -90,14 +96,15 @@ class ArgSpec:
         return value
 
     def _raise_unhashable(self, parts: list[Any]) -> None:
-        for name, part in zip(self.key_names, parts):
+        for name, part in zip(self.key_names, parts, strict=True):
             try:
                 hash(part)
             except TypeError as e:
                 what = f"the converted value of argument {name!r}" if name in self.converters else f"argument {name!r}"
                 raise TypeError(
                     f"{self.qualname}: can't use {what} in the cache key: {type(part).__name__} is unhashable. "
-                    f"Make it hashable with key_converters={{{name!r}: ...}} (e.g. a function returning a tuple or bytes), "
+                    f"Make it hashable with key_converters={{{name!r}: ...}} "
+                    f"(e.g. a function returning a tuple or bytes), "
                     f"or, if it doesn't affect the result, leave it out with omit=[{name!r}]."
                 ) from e
         raise TypeError(f"{self.qualname}: cache key is unhashable")  # not expected: some part should fail above
@@ -109,14 +116,19 @@ class ArgSpec:
         if isinstance(ref, int):
             n = len(self._params)
             if not -n <= ref < n:
-                raise ValueError(f"{self.qualname}: {option} position {ref} is out of range for {n} parameters (positions count self)")
+                raise ValueError(
+                    f"{self.qualname}: {option} position {ref} is out of range for {n} parameters "
+                    "(positions count self)"
+                )
             param = self._params[ref]
         else:
             if ref not in self.signature.parameters:
                 raise ValueError(f"{self.qualname}: {option} names {ref!r}, which is not a parameter")
             param = self.signature.parameters[ref]
         if param.name == self.self_name:
-            raise ValueError(f"{self.qualname}: {option} can't refer to {self.self_name!r} (it is always left out of the key)")
+            raise ValueError(
+                f"{self.qualname}: {option} can't refer to {self.self_name!r} (it is always left out of the key)"
+            )
         if not allow_var and param.kind in _VAR_KINDS:
             raise ValueError(f"{self.qualname}: {option} can't refer to *{param.name} or **{param.name}")
         return param.name
@@ -131,12 +143,16 @@ class ArgSpec:
                 raise ValueError(f"{self.qualname}: passthrough refers to {name!r} twice")
             if isinstance(spec, tuple):
                 if len(spec) != 2:
-                    raise TypeError(f"{self.qualname}: passthrough for {name!r} must be a position or (position, transform)")
+                    raise TypeError(
+                        f"{self.qualname}: passthrough for {name!r} must be a position or (position, transform)"
+                    )
                 position, transform = spec
             else:
                 position, transform = spec, None
             if isinstance(position, bool) or not isinstance(position, int):
-                raise TypeError(f"{self.qualname}: passthrough output position for {name!r} must be an int, got {position!r}")
+                raise TypeError(
+                    f"{self.qualname}: passthrough output position for {name!r} must be an int, got {position!r}"
+                )
             if transform is not None and not callable(transform):
                 raise TypeError(f"{self.qualname}: passthrough transform for {name!r} must be callable")
             if any(position == p for p, _ in resolved.values()):
@@ -144,14 +160,18 @@ class ArgSpec:
             resolved[name] = (position, transform)
         return resolved
 
-    def _resolve_converters(self, converters: Mapping[ArgRef, Callable[[Any], Any]], omitted: set[str]) -> dict[str, Callable[[Any], Any]]:
+    def _resolve_converters(
+        self, converters: Mapping[ArgRef, Callable[[Any], Any]], omitted: set[str]
+    ) -> dict[str, Callable[[Any], Any]]:
         if not isinstance(converters, Mapping):
             raise TypeError(f"{self.qualname}: key_converters must be a mapping {{argument: function}}")
         resolved: dict[str, Callable[[Any], Any]] = {}
         for ref, converter in converters.items():
             name = self._resolve(ref, "key_converters")
             if name in omitted or name in self.passthrough:
-                raise ValueError(f"{self.qualname}: key_converters has {name!r}, which is not in the key (omitted or passed through)")
+                raise ValueError(
+                    f"{self.qualname}: key_converters has {name!r}, which is not in the key (omitted or passed through)"
+                )
             if name in resolved:
                 raise ValueError(f"{self.qualname}: key_converters refers to {name!r} twice")
             if not callable(converter):

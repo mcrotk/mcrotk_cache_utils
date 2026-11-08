@@ -13,8 +13,8 @@ dependencies = [
 
 [project.optional-dependencies]
 numpy = [
-    # default_rng (used by the RNG decorators) was added in numpy 1.17
-    "numpy>=1.17",
+    # first numpy release with Python 3.11 wheels (default_rng itself dates from 1.17)
+    "numpy>=1.23.2",
 ]
 
 [build-system]
@@ -25,7 +25,16 @@ build-backend = "uv_build"
 dev = [
     "numpy",
     "pytest>=9.2.0",
+    "ruff>=0.17.4",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import sorting, pyupgrade, bugbear
+select = ["E", "W", "F", "I", "UP", "B"]

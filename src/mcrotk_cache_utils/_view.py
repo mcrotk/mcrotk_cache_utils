@@ -72,15 +72,23 @@ class PassthroughView(MutableMapping):
         # Errors here are TypeError, not ValueError: cachetools ignores a ValueError from
         # storing (it means "value too large"), which would hide the problem.
         if not isinstance(result, tuple):
-            raise TypeError(f"{self._qualname}() must return a tuple when passthrough is used, got {type(result).__name__}")
+            raise TypeError(
+                f"{self._qualname}() must return a tuple when passthrough is used, got {type(result).__name__}"
+            )
         length = len(result)
         positions = []
         for position in key.passthrough:
             if not -length <= position < length:
-                raise TypeError(f"{self._qualname}(): passthrough output position {position} is out of range for the returned {length}-tuple")
+                raise TypeError(
+                    f"{self._qualname}(): passthrough output position {position} is out of range "
+                    f"for the returned {length}-tuple"
+                )
             positions.append(position % length)
         if len(set(positions)) != len(positions):
-            raise TypeError(f"{self._qualname}(): passthrough output positions {list(key.passthrough)} overlap for the returned {length}-tuple")
+            raise TypeError(
+                f"{self._qualname}(): passthrough output positions {list(key.passthrough)} overlap "
+                f"for the returned {length}-tuple"
+            )
         drop = set(positions)
         return Stored(type(result), length, tuple(v for i, v in enumerate(result) if i not in drop))
 

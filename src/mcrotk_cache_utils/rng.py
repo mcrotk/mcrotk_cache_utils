@@ -49,6 +49,12 @@ def rng_cached_method(
         raise ImportError("rng_cached_method needs numpy: pip install 'mcrotk-cache-utils[numpy]'") from e
 
     if passthrough is not None and rng_arg in passthrough:
-        raise ValueError(f"rng_cached_method: {rng_arg!r} is set by rng_arg/rng_output; don't also put it in passthrough")
+        raise ValueError(
+            f"rng_cached_method: {rng_arg!r} is set by rng_arg/rng_output; don't also put it in passthrough"
+        )
     combined = {rng_arg: (rng_output, default_rng), **(passthrough or {})}
-    return cached_method(func, passthrough=combined, **kwargs) if func is not None else cached_method(passthrough=combined, **kwargs)
+    return (
+        cached_method(func, passthrough=combined, **kwargs)
+        if func is not None
+        else cached_method(passthrough=combined, **kwargs)
+    )

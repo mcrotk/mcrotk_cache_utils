@@ -84,7 +84,9 @@ def cached_method(
             try:
                 instance_dict = obj.__dict__
             except AttributeError:
-                raise TypeError(f"{spec.qualname}: {type(obj).__name__} instances have no __dict__ to hold the cache") from None
+                raise TypeError(
+                    f"{spec.qualname}: {type(obj).__name__} instances have no __dict__ to hold the cache"
+                ) from None
             cache = instance_dict.get(attr)
             if cache is None:
                 cache = instance_dict.setdefault(attr, cache_factory())
@@ -92,7 +94,9 @@ def cached_method(
                 raise TypeError(f"{spec.qualname}: attribute {attr!r} is already used for something other than a cache")
             return PassthroughView(cache, spec.qualname) if spec.passthrough else cache
 
-        descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(func)
+        descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(
+            func
+        )
         setattr(descriptor, _MARKER, attr)
         return descriptor
 

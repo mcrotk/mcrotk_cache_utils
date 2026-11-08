@@ -15,6 +15,7 @@ Caching decorators for methods, built on [cachetools](https://github.com/tkem/ca
 import numpy as np
 from mcrotk_cache_utils import rng_cached_method
 
+
 class Simulation:
     def __init__(self, n_paths):
         self.n_paths = n_paths
@@ -24,6 +25,7 @@ class Simulation:
         rng = np.random.default_rng(rng)
         paths = rng.normal(size=(self.n_paths, horizon)).cumsum(axis=1)
         return paths.mean(axis=0), rng
+
 
 sim = Simulation(10_000)
 rng = np.random.default_rng(0)
@@ -38,18 +40,19 @@ The RNG is left out of the cache key. On a hit it comes back unused (a seed or `
 ```python
 from mcrotk_cache_utils import cached_method, clear_caches
 
+
 class Model:
     @cached_method(omit="verbose", key_converters={"weights": tuple})
-    def fit(self, data_id, weights, verbose=False):
-        ...
+    def fit(self, data_id, weights, verbose=False): ...
 
     @cached_method(passthrough={"state": (-1, normalize_state)})
     def step(self, x, state):
         ...
         return result, state
 
-clear_caches(model)          # all cached methods
-clear_caches(model, "fit")   # just one
+
+clear_caches(model)  # all cached methods
+clear_caches(model, "fit")  # just one
 ```
 
 Positions can be used instead of names: they count `self`, as in the `def` line, and negative positions count from the end.

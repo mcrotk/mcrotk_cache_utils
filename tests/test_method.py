@@ -421,7 +421,9 @@ def test_ttl_cache_through_passthrough_view():
         def __init__(self):
             self.runs = 0
 
-        @cached_method(cache_factory=lambda: cachetools.TTLCache(maxsize=10, ttl=10, timer=lambda: now[0]), passthrough={"t": -1})
+        @cached_method(
+            cache_factory=lambda: cachetools.TTLCache(maxsize=10, ttl=10, timer=lambda: now[0]), passthrough={"t": -1}
+        )
         def f(self, x, t):
             self.runs += 1
             return x, t
