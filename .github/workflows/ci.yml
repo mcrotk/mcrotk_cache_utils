@@ -16,6 +16,7 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3 # no major-version tags are published
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
+      - run: uv run --locked pyright
 
   tests:
     # Locked dependencies (uv.lock) on every supported Python

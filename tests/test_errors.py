@@ -119,7 +119,7 @@ def test_existing_non_cache_attribute():
             return 1
 
     d = D()
-    d._D_f_cache = 5
+    d.__dict__["_D_f_cache"] = 5
     with pytest.raises(TypeError, match="already used"):
         d.f()
 

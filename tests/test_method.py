@@ -205,11 +205,11 @@ def test_clear_caches_leaves_other_attributes_and_reaches_parent():
             return super().f(x) + 1
 
     c = Child()
-    c.mine = {"keep": 1}
+    c.__dict__["mine"] = {"keep": 1}  # one of our own dicts
     c.f(1)
     clear_caches(c)
     assert c.__dict__["_Base_f_cache"] == {} and c.__dict__["_Child_f_cache"] == {}
-    assert c.mine == {"keep": 1}
+    assert c.__dict__["mine"] == {"keep": 1}
 
 
 def test_clear_caches_resets_info():

@@ -19,9 +19,12 @@ class PassthroughKey(tuple):
     cache entries as the plain tuple of its parts.
     """
 
+    passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]  # {output position: (argument value, transform)}
+    _hash: int
+
     def __new__(cls, parts: Iterable[Any], passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]):
         key = super().__new__(cls, parts)
-        key.passthrough = passthrough  # {output position: (argument value, transform)}
+        key.passthrough = passthrough
         return key
 
     def __hash__(self) -> int:
