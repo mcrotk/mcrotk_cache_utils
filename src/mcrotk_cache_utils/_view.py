@@ -3,6 +3,8 @@
 from collections.abc import Iterator, MutableMapping
 from typing import Any, NamedTuple
 
+import cachetools
+
 from ._spec import PassthroughKey
 
 
@@ -35,14 +37,14 @@ class PassthroughView(MutableMapping):
     def __setitem__(self, key: PassthroughKey, result: Any) -> None:
         self._cache[key.plain()] = self._strip(key, result)
 
-    def setdefault(self, key: PassthroughKey, result: Any = None) -> Any:
+    def setdefault(self, key: PassthroughKey, default: Any = None) -> Any:
         # Used by cachetools' locked wrapper after a miss. If another thread stored this key
         # meanwhile, keep this call's own result: its passed-through outputs (e.g. its own
         # advanced RNG) are the right ones for this caller.
         plain = key.plain()
         if plain not in self._cache:
-            self._cache[plain] = self._strip(key, result)
-        return result
+            self._cache[plain] = self._strip(key, default)
+        return default
 
     def __delitem__(self, key: Any) -> None:
         del self._cache[key]
@@ -91,6 +93,35 @@ class PassthroughView(MutableMapping):
             )
         drop = set(positions)
         return Stored(type(result), length, tuple(v for i, v in enumerate(result) if i not in drop))
+
+
+class PassthroughCacheView(PassthroughView, cachetools.Cache):
+    """A PassthroughView over a cachetools ``Cache``, which is itself a ``Cache``.
+
+    cachetools' ``cache_info()`` reports ``maxsize`` and ``currsize`` only for ``Cache``
+    instances. ``Cache.__init__`` is never called: every method that would use its own
+    storage is overridden, by PassthroughView or here, to use the real cache instead.
+    """
+
+    @property
+    def maxsize(self) -> Any:
+        return self._cache.maxsize  # pyright: ignore[reportAttributeAccessIssue]
+
+    @property
+    def currsize(self) -> Any:
+        return self._cache.currsize  # pyright: ignore[reportAttributeAccessIssue]
+
+    # A method, not a staticmethod as in Cache, since it delegates to the real cache (Cache
+    # itself replaces it per instance when given a custom getsizeof).
+    def getsizeof(self, value: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        return self._cache.getsizeof(value)  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def make_view(cache: MutableMapping, qualname: str) -> PassthroughView:
+    """The view to hand to cachetools in place of ``cache``."""
+    if isinstance(cache, cachetools.Cache):
+        return PassthroughCacheView(cache, qualname)
+    return PassthroughView(cache, qualname)
 
 
 def _rebuild(stored: Stored, passthrough: dict[int, tuple[Any, Any]]) -> tuple:

@@ -7,7 +7,7 @@ from typing import Any
 import cachetools
 
 from ._spec import ArgRef, ArgSpec, Passthrough
-from ._view import PassthroughView
+from ._view import make_view
 
 _MARKER = "_mcrotk_cache_attr"  # set on our descriptors: the name of the instance attribute holding the cache
 
@@ -74,6 +74,9 @@ def cached_method(
           ``copy.copy(obj)``: the copy shares the original's caches, and its cached methods
           may still run with the original as ``self`` (a cachetools behavior).
         - Pickling an instance (e.g. sending it to worker processes) carries its caches along.
+        - With ``passthrough``, cached entries record the type of the returned tuple. If that's
+          a NamedTuple class defined inside a function, an instance with cached results can't
+          be pickled (the same limitation as pickling any object referring to a local class).
     """
 
     def decorate(func: Callable[..., Any]) -> Any:
@@ -92,7 +95,7 @@ def cached_method(
                 cache = instance_dict.setdefault(attr, cache_factory())
             elif not isinstance(cache, MutableMapping):
                 raise TypeError(f"{spec.qualname}: attribute {attr!r} is already used for something other than a cache")
-            return PassthroughView(cache, spec.qualname) if spec.passthrough else cache
+            return make_view(cache, spec.qualname) if spec.passthrough else cache
 
         descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(
             func
