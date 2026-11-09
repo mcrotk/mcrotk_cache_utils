@@ -72,12 +72,13 @@ class Simulation:
 
 
 sim = Simulation(10_000)
-rng = np.random.default_rng(0)
-mean = sim.mean_path(250, rng)  # computed: the draws advance rng
-mean = sim.mean_path(250, rng)  # cached: nothing is drawn, rng is unchanged
+rng = np.random.default_rng(0)  # one generator, made once and passed to every call
+short = sim.mean_path(10, rng)  # computed: the draws advance rng
+long = sim.mean_path(250, rng)  # computed: continues the same stream
+short = sim.mean_path(10, rng)  # cached: nothing is drawn, rng is unchanged
 ```
 
-Methods that also return the generator with their result:
+Methods that also return the generator with their result, so that a caller who passes a seed can continue from the generator the method made:
 
 ```python
 import numpy as np
