@@ -7,6 +7,7 @@ Caching decorators for methods and functions, built on [cachetools](https://gith
 - **`omit=`**: leave arguments that don't affect the result out of the key.
 - **`key_converters=`**: make unhashable arguments (lists, arrays, ...) usable in the key.
 - **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
+- **Safe copying**: `copy.copy` and `copy.deepcopy` give copies whose cached methods run on the copy, with caches emptied or copied as you choose (`on_copy=`).
 - All of cachetools' cache types (`LRUCache`, `TTLCache`, ...) and its `lock`, `condition` and `info` options.
 
 ## Example: methods that take and return an RNG
@@ -91,12 +92,21 @@ fit.cache_clear()
 
 The options are the same as for methods. A function has one cache, which lives as long as the program: the default is unbounded, so pass e.g. `cache_factory=lambda: cachetools.LRUCache(maxsize=128)` to bound it. Using `cached_function` directly on an ordinary method is an error (its cache would be shared by all instances); use `cached_method`.
 
+## Copying instances
+
+`@cached_method` gives the class a `__copy__` and `__deepcopy__`, so `copy.copy(obj)` and `copy.deepcopy(obj)` work as usual for the other attributes, and each cached method's cache in the copy is set by its `on_copy` option:
+
+- `"empty"` (default): the copy starts with an empty cache. Never stale, even if you then change the copy.
+- `"copy"`: the copy keeps the cached results (`copy.copy` shares the result objects with the original, `deepcopy` duplicates them). Stale if you then change the copy, until `clear_caches(copy)`.
+- `"manual"`: the class's own `__copy__` handles it.
+
+If the class already defines its own `__copy__` or `__deepcopy__`, it's kept, and you get a `CacheCopyWarning` unless the cached methods use `on_copy="manual"`. `dataclasses.replace` and `copy.replace` start with empty caches; pickling carries the caches along.
+
 ## Caveats
 
 - Leaving an argument out of the key (`omit`, `passthrough`) is only right if it doesn't affect the result.
 - Instance attributes aren't part of the key: after changing one that affects results, call `clear_caches(obj)`.
 - Cached objects are returned as stored, not copied.
-- Copy with `copy.deepcopy` or `dataclasses.replace`, not `copy.copy` (see the `cached_method` docstring).
 - Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).
 - Processes: a function's cache isn't shared between processes; worker processes start with empty caches. Pickling an instance carries its method caches along.
 

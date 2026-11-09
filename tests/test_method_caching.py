@@ -169,16 +169,15 @@ def test_dataclass_fields_unaffected():
     assert dataclasses.replace(a, n=5).double() == 10  # starts with an empty cache
 
 
-def test_deepcopy_and_pickle_get_own_caches():
+def test_deepcopy_starts_empty_and_pickle_carries_caches():
     c = Calc(1)
     c.mul(3)
     d = copy.deepcopy(c)
     d.scale = 100
     assert d.mul(4) == 800  # binds to the copy
-    assert d.mul(3) == 6  # cached result carried over (stale by design; see clear_caches)
-    assert d.__dict__["_Calc_mul_cache"] is not c.__dict__["_Calc_mul_cache"]
+    assert d.mul(3) == 600  # on_copy='empty' (the default): recomputed, not stale
     p = pickle.loads(pickle.dumps(c))
-    assert p.mul(3) == 6 and p.runs == [("mul", 3, 2)]
+    assert p.mul(3) == 6 and p.runs == [("mul", 3, 2)]  # pickling carries the cache along
 
 
 def test_clear_caches_all_and_named():

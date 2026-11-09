@@ -63,13 +63,10 @@ def test_class_access_with_passthrough():
     assert t.runs == [(3, "a")]
 
 
-@pytest.mark.parametrize(
-    "make_copy", [copy.deepcopy, lambda o: pickle.loads(pickle.dumps(o))], ids=["deepcopy", "pickle"]
-)
-def test_copies_carry_passthrough_cache(make_copy):
+def test_pickling_carries_passthrough_cache():
     t = Tagged()
     t.f(3, "a")
-    c = make_copy(t)
+    c = pickle.loads(pickle.dumps(t))
     hit = c.f(3, "new")
     assert hit == Result(3, "new") and type(hit) is Result  # the stored result type survives the copy
     assert c.runs == [(3, "a")]  # the copy's own runs list (copied), no new run

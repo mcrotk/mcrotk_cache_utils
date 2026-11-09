@@ -7,10 +7,20 @@ from typing import Any
 import cachetools
 
 from .cache_keys import ArgRef, ArgSpec, Passthrough
+from .instance_copying import (
+    CACHE_ATTR,
+    ON_COPY,
+    ON_COPY_VALUES,
+    InstallsCopyMethods,
+    OnCopy,
+    check_copy_handling,
+)
 from .passthrough_cache import make_view
 from .placement_checks import MethodInClassBody, add_check, reject_static_or_class_method
 
-_MARKER = "_mcrotk_cache_attr"  # set on our descriptors: the name of the instance attribute holding the cache
+
+class _DescriptorChecks(MethodInClassBody, InstallsCopyMethods):
+    """What we add to cachetools' method descriptor: the placement error and copy handling."""
 
 
 def cached_method(
@@ -24,6 +34,7 @@ def cached_method(
     lock: Callable[[Any], Any] | None = None,
     condition: Callable[[Any], Any] | None = None,
     info: bool = False,
+    on_copy: OnCopy | None = None,
 ) -> Any:
     """Cache a method's results, with a separate cache for each instance.
 
@@ -64,6 +75,22 @@ def cached_method(
         lock, condition, info: Passed to :func:`cachetools.cachedmethod` (``lock`` and
             ``condition`` are functions of ``self`` returning the instance's lock/condition).
             With ``info=True``, ``obj.method.cache_info()`` gives hit and miss counts.
+        on_copy: What a copy of the instance (``copy.copy`` or ``copy.deepcopy``) gets in
+            this method's cache: ``'empty'`` (the default: never stale, even if the copy is
+            then changed), ``'copy'`` (the cached results: shared with the original by
+            ``copy.copy``, deep-copied by ``deepcopy``; stale if the copy is changed, until
+            :func:`clear_caches`), or ``'manual'`` (the class's own ``__copy__`` handles it).
+
+    **Copying.** The decorator gives the class a ``__copy__`` and ``__deepcopy__`` that do
+    Python's usual copy but apply ``on_copy`` to each cached method's cache, and make the
+    copy's cached methods run on the copy. Without them, ``copy.copy`` would give the copy the
+    original's caches, and its cached methods would run on the original (a cachetools
+    behavior). If the class (or a base) defines its own ``__copy__`` or ``__deepcopy__``,
+    that one is kept: setting ``on_copy`` to ``'empty'`` or ``'copy'`` is then an error, and
+    the default gives a :class:`CacheCopyWarning` (once per class) unless the methods use
+    ``on_copy='manual'``. ``'manual'`` requires a ``__copy__`` of the class's own. Copies
+    start with zeroed ``info`` counters. Pickling is unaffected: it carries the caches along.
+    ``dataclasses.replace`` and ``copy.replace`` make new instances, with empty caches.
 
     Errors in the options (unknown arguments, conflicts) are raised when the decorator is
     applied. An unhashable key raises ``TypeError`` naming the argument.
@@ -71,16 +98,16 @@ def cached_method(
     Caveats:
         - Results are returned as stored, not copied: changing a returned object in place
           changes the cached result.
-        - Copying: use ``copy.deepcopy(obj)`` (the copy gets its own caches, with the cached
-          results), or ``dataclasses.replace(obj, ...)`` (starts with empty caches; best when
-          the copy changes attributes), or ``deepcopy`` then :func:`clear_caches`. Don't use
-          ``copy.copy(obj)``: the copy shares the original's caches, and its cached methods
-          may still run with the original as ``self`` (a cachetools behavior).
         - Pickling an instance (e.g. sending it to worker processes) carries its caches along.
+        - Copying a cache for ``on_copy='copy'`` isn't thread-safe: don't copy an instance
+          while another thread is calling its cached methods.
         - With ``passthrough``, cached entries record the type of the returned tuple. If that's
           a NamedTuple class defined inside a function, an instance with cached results can't
           be pickled (the same limitation as pickling any object referring to a local class).
     """
+
+    if on_copy is not None and on_copy not in ON_COPY_VALUES:
+        raise ValueError(f"cached_method: on_copy must be one of {ON_COPY_VALUES}, got {on_copy!r}")
 
     def decorate(func: Callable[..., Any]) -> Any:
         reject_static_or_class_method(
@@ -100,6 +127,7 @@ def cached_method(
                 ) from None
             cache = instance_dict.get(attr)
             if cache is None:
+                check_copy_handling(type(obj))
                 cache = instance_dict.setdefault(attr, cache_factory())
             elif not isinstance(cache, MutableMapping):
                 raise TypeError(f"{spec.qualname}: attribute {attr!r} is already used for something other than a cache")
@@ -108,8 +136,9 @@ def cached_method(
         descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(
             func
         )
-        add_check(descriptor, MethodInClassBody)
-        setattr(descriptor, _MARKER, attr)
+        add_check(descriptor, _DescriptorChecks)
+        setattr(descriptor, CACHE_ATTR, attr)
+        setattr(descriptor, ON_COPY, ("empty", False) if on_copy is None else (on_copy, True))
         return descriptor
 
     return decorate if func is None else decorate(func)
@@ -119,13 +148,12 @@ def clear_caches(obj: Any, *methods: str) -> None:
     """Empty ``obj``'s caches for the named cached methods, or for all of them if none are named.
 
     Only caches made by this library's decorators are touched. Use after changing an
-    attribute that affects cached results, or after ``copy.deepcopy`` when the copy will be
-    changed.
+    attribute that affects cached results, e.g. in a copy made with ``on_copy='copy'``.
     """
     found = set()
     for cls in type(obj).__mro__:
         for name, value in vars(cls).items():
-            attr = getattr(value, _MARKER, None)
+            attr = getattr(value, CACHE_ATTR, None)
             if not isinstance(attr, str) or (methods and name not in methods):
                 continue
             found.add(name)
