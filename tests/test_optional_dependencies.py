@@ -56,6 +56,9 @@ def test_core_works_without_numpy_and_pandas():
         g(1, (2, 3), y="a")
         g(1, (2, 3), y="a")
         assert len(calls) == 1
+        g([1, {"a": {2}}], [3], y={"b": [4]})  # unhashable containers, converted automatically
+        g((1, {"a": frozenset({2})}), (3,), y={"b": (4,)})
+        assert len(calls) == 2
         assert container_key({"a": [1]}) == container_key({"a": [1]}) != container_key({"a": (1,)})
         print("ok")
     """)

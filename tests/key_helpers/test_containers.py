@@ -135,3 +135,196 @@ def test_as_key_converter_without_type_tags():
     m.fit_any([1, 2])
     m.fit_any((1, 2))
     assert m.calls == 1
+
+
+# --- Applied automatically (as container_key with type_tags=False) ---
+
+
+class Auto:
+    def __init__(self):
+        self.calls = 0
+
+    @cached_method
+    def total(self, xs):
+        self.calls += 1
+        return len(xs)
+
+    @cached_method
+    def var(self, *args, **kwargs):
+        self.calls += 1
+        return len(args)
+
+    @cached_method(omit="xs")
+    def ignores(self, xs, n):
+        self.calls += 1
+        return n
+
+    @cached_method(passthrough={"t": -1})
+    def through(self, xs, t):
+        self.calls += 1
+        return len(xs), t
+
+    @cached_method(on_copy="copy")
+    def kept(self, xs):
+        self.calls += 1
+        return len(xs)
+
+
+def calls_for(method, *argument_lists, **kwargs_each):
+    """Call ``method`` of a new Auto with each argument list in turn; return how many calls ran."""
+    obj = Auto()
+    for args in argument_lists:
+        getattr(obj, method)(*args, **kwargs_each)
+    return obj.calls
+
+
+def test_equal_lists_share_a_result():
+    assert calls_for("total", [[1, 2]], [[1, 2]]) == 1
+    assert calls_for("total", [[1, 2]], [[2, 1]]) == 2
+
+
+@pytest.mark.parametrize(
+    "a, b",
+    [
+        ([1, 2], (1, 2)),
+        (Point(1, 2), [1, 2]),
+        ({1, 2}, frozenset({1, 2})),
+        ({"a": [1], "b": 2}, {"b": 2, "a": [1]}),
+        ({"a": [1]}, OrderedDict(a=(1,))),
+        (([1], {2}), [(1,), frozenset({2})]),
+    ],
+    ids=["list-tuple", "namedtuple-list", "set-frozenset", "dict-order", "dict-ordereddict", "nested"],
+)
+def test_same_kind_shares_a_result(a, b):
+    assert calls_for("total", [a], [b]) == 1
+
+
+def test_changed_in_place_gets_a_new_result():
+    obj, xs = Auto(), [1, 2]
+    assert obj.total(xs) == 2
+    xs.append(3)
+    assert obj.total(xs) == 3
+    d = {"a": [1]}
+    obj.total(d)
+    d["a"].append(2)
+    obj.total(d)
+    assert obj.calls == 4
+
+
+def test_in_var_args_and_kwargs():
+    obj = Auto()
+    obj.var([1], {"a": {2}}, k=[3], j={4: [5]})
+    obj.var((1,), {"a": frozenset({2})}, j={4: (5,)}, k=(3,))
+    assert obj.calls == 1
+    obj.var([1], {"a": {2}}, k=[3, 0], j={4: [5]})
+    assert obj.calls == 2
+
+
+def test_function():
+    calls = []
+
+    @cached_function
+    def f(xs, *, opts=None):
+        calls.append(1)
+        return xs
+
+    f([1, 2], opts={"a": 1})
+    f((1, 2), opts={"a": 1})
+    assert len(calls) == 1
+    assert f((1, 2), opts={"a": 1}) == [1, 2]  # the stored result: [1, 2] and (1, 2) share an entry
+    f([1, 2], opts={"a": 2})
+    assert len(calls) == 2
+
+
+def test_key_converter_overrides():
+    m = Model()
+    m.fit([1, 2])
+    m.fit((1, 2))
+    assert m.calls == 2  # container_key with type tags, given in key_converters
+
+
+def test_omitted_and_passed_through():
+    assert calls_for("ignores", [[1], 5], [{2}, 5]) == 1
+    obj = Auto()
+    obj.through([1, 2], "a")
+    assert obj.through([1, 2], "b") == (2, "b")
+    assert obj.calls == 1
+
+
+def test_unhashable_inside_names_the_argument():
+    class Unhashable:
+        __hash__ = None  # pyright: ignore[reportAssignmentType]
+
+    for value in ([Unhashable()], {"a": Unhashable()}, {Unhashable: [Unhashable()]}, ([Unhashable()],)):
+        with pytest.raises(TypeError) as e:
+            Auto().total(value)
+        msg = str(e.value)
+        assert msg.startswith("Auto.total: can't use argument 'xs' in the cache key: ")
+        assert "unhashable type: 'Unhashable'" in msg  # within Python's own message, which varies by version
+        assert "key_converters={'xs': ...}" in msg
+
+
+def test_object_array_inside_names_the_argument():
+    np = pytest.importorskip("numpy")
+    with pytest.raises(TypeError, match="argument 'xs' in the cache key: arrays with object dtype"):
+        Auto().total([np.array([None])])
+
+
+def test_arrays_inside():
+    np = pytest.importorskip("numpy")
+    assert calls_for("total", [[np.arange(3), {"w": np.ones(2)}]], [(np.arange(3), {"w": np.ones(2)})]) == 1
+    assert calls_for("total", [[np.arange(3)]], [[np.arange(4)]]) == 2
+
+
+def test_hashable_tuples_unchanged():
+    # Hashable containers go in the key as they are (converting would give an equal key anyway).
+    calls = []
+
+    @cached_function
+    def f(t):
+        calls.append(1)
+        return t
+
+    t = (1, (2, "a"))
+    f(t)
+    f([1, [2, "a"]])
+    assert len(calls) == 1
+    [key] = f.cache
+    assert key[0] is t
+
+
+def test_pickled_and_copied_instances_keep_results():
+    obj = Auto()
+    obj.kept([1, {"a": {2}}])
+    for other in (pickle.loads(pickle.dumps(obj)), __import__("copy").copy(obj), __import__("copy").deepcopy(obj)):
+        other.kept([1, {"a": {2}}])
+        assert other.calls == 1
+
+
+_CHILD = """
+import pickle, sys
+from mcrotk_cache_utils import container_key
+keys = pickle.loads(sys.stdin.buffer.read())
+cache = dict.fromkeys(keys)
+fresh = [container_key(v, type_tags=False) for v in ({"a": ["x", {"y"}]}, ["s", ("t", {"u": 1})])]
+print(all(k in cache for k in fresh))
+"""
+
+
+def test_keys_match_in_another_process():
+    # Pickled caches go to worker processes; str hashes differ between processes, so the keys
+    # must still be found once rebuilt there.
+    import os
+    import subprocess
+    import sys
+
+    keys = [container_key(v, type_tags=False) for v in ({"a": ["x", {"y"}]}, ["s", ("t", {"u": 1})])]
+    for seed in ("1", "2"):
+        result = subprocess.run(
+            [sys.executable, "-c", _CHILD],
+            input=pickle.dumps(keys),
+            capture_output=True,
+            env={**os.environ, "PYTHONHASHSEED": seed},
+            check=True,
+        )
+        assert result.stdout.decode().strip() == "True"
