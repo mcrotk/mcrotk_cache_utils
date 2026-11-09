@@ -9,7 +9,12 @@ from .function_caching import cached_function
 from .instance_copying import CacheCopyWarning, copy_instance
 from .key_helpers import array_key, container_key, dataframe_key, index_key, series_key
 from .method_caching import cached_method, clear_caches
-from .rng_caching import rng_passthrough_cached_function, rng_passthrough_cached_method
+from .rng_caching import (
+    rng_omit_cached_function,
+    rng_omit_cached_method,
+    rng_passthrough_cached_function,
+    rng_passthrough_cached_method,
+)
 
 __all__ = [
     "CacheControls",
@@ -23,6 +28,8 @@ __all__ = [
     "copy_instance",
     "dataframe_key",
     "index_key",
+    "rng_omit_cached_function",
+    "rng_omit_cached_method",
     "rng_passthrough_cached_function",
     "rng_passthrough_cached_method",
     "series_key",

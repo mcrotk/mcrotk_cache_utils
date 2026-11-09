@@ -1,14 +1,143 @@
-"""Caching decorators for methods and functions that take a random number generator and return it."""
+"""Caching decorators for methods and functions that take a random number generator argument.
+
+Two styles of such functions are covered:
+
+- **omit** (``rng_omit_cached_method``, ``rng_omit_cached_function``): the function takes the
+  generator (or a seed) and draws from it, advancing the caller's generator in place, as in the
+  recommended practice (Scientific Python SPEC 7). The generator is just left out of the key.
+- **passthrough** (``rng_passthrough_cached_method``, ``rng_passthrough_cached_function``): the
+  function also returns the generator with its result. On a hit, the caller's generator is
+  returned in place of the one stored with the result.
+"""
 
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from typing import Any, TypeVar, overload
 
-from .cache_keys import ArgRef, Passthrough
+from .cache_keys import ArgRef, Passthrough, _as_refs
 from .function_caching import cached_function
 from .instance_copying import OnCopy
 from .method_caching import cached_method
 
 F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
+
+
+# --- omit: functions that advance the caller's generator in place ---
+
+
+@overload
+def rng_omit_cached_method(
+    func: F,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> F: ...
+@overload
+def rng_omit_cached_method(
+    func: None = None,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> Callable[[F], F]: ...
+def rng_omit_cached_method(
+    func: Callable[..., Any] | None = None,
+    /,
+    *,
+    rng_arg: ArgRef = "rng",
+    omit: ArgRef | Iterable[ArgRef] = (),
+    **kwargs: Any,
+) -> Any:
+    """Cache a method that takes a random number generator, leaving the generator out of the key.
+
+    Use as ``@rng_omit_cached_method`` or ``@rng_omit_cached_method(...)``. The same as
+    :func:`cached_method` with ``omit=rng_arg`` (other arguments can be added with ``omit=``);
+    all other options are as for :func:`cached_method`.
+
+    For methods that take the generator, or a seed, as an argument and draw from it::
+
+        @rng_omit_cached_method
+        def simulate(self, n, rng=None):
+            rng = np.random.default_rng(rng)
+            ...
+            return result
+
+    - Calls differing only in their generator share a cached result: the first call's random
+      draws are reused.
+    - On a miss, the method draws from the caller's generator, advancing it in place (when a
+      ``Generator`` is passed). On a hit, nothing is drawn, so the generator is unchanged.
+
+    Args:
+        rng_arg: The generator argument, by name or position (positions count ``self``).
+            Default ``'rng'``.
+    """
+    return cached_method(func, omit=(rng_arg, *_as_refs(omit)), **kwargs)
+
+
+@overload
+def rng_omit_cached_function(
+    func: F,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> F: ...
+@overload
+def rng_omit_cached_function(
+    func: None = None,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> Callable[[F], F]: ...
+def rng_omit_cached_function(
+    func: Callable[..., Any] | None = None,
+    /,
+    *,
+    rng_arg: ArgRef = "rng",
+    omit: ArgRef | Iterable[ArgRef] = (),
+    **kwargs: Any,
+) -> Any:
+    """Cache a function that takes a random number generator, leaving the generator out of the key.
+
+    The function version of :func:`rng_omit_cached_method`, built on :func:`cached_function`
+    (whose options it takes). Also for static and class methods, with ``@staticmethod`` or
+    ``@classmethod`` above it.
+
+    Args:
+        rng_arg: The generator argument, by name or position (as in the ``def`` line, from 0).
+            Default ``'rng'``.
+    """
+    return cached_function(func, omit=(rng_arg, *_as_refs(omit)), **kwargs)
+
+
+# --- passthrough: functions that also return the generator ---
 
 
 @overload
@@ -75,6 +204,8 @@ def rng_passthrough_cached_method(
     - On a hit, the stored result is returned with the caller's generator passed through
       ``numpy.random.default_rng``: a ``Generator`` comes back unchanged (nothing was
       drawn), and a seed or ``None`` comes back as a new ``Generator`` made from it.
+
+    For methods that don't return the generator, use :func:`rng_omit_cached_method`.
 
     Args:
         rng_arg: The generator argument, by name or position (positions count ``self``).
