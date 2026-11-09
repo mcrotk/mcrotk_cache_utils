@@ -149,6 +149,7 @@ def cached_method(
         raise ValueError(f"cached_method: on_copy must be one of {ON_COPY_VALUES}, got {on_copy!r}")
 
     def decorate(func: Callable[..., Any]) -> Any:
+        """Wrap ``func`` with cachetools' method descriptor, with its key spec and per-instance caches."""
         reject_static_or_class_method(
             func,
             "cached_method",

@@ -79,6 +79,7 @@ def cached_function(
     """
 
     def decorate(func: Callable[..., Any]) -> Any:
+        """Wrap ``func`` with cachetools, with its key spec and its one cache."""
         reject_static_or_class_method(
             func, "cached_function", "Put @staticmethod/@classmethod above @cached_function instead."
         )

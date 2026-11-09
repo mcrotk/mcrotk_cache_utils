@@ -15,6 +15,7 @@ def add_check(obj: Any, check: type) -> None:
 
 @functools.cache
 def _with_check(cls: type, check: type) -> type:
+    """A subclass of ``cls`` with the ``check`` mixin in front (cached: one class per pair)."""
     # Same name and module as cachetools' class, so reprs and error messages don't change.
     return type(cls.__name__, (check, cls), {"__module__": cls.__module__, "__qualname__": cls.__qualname__})
 

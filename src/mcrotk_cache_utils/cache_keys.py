@@ -103,6 +103,7 @@ class ArgSpec:
         return key
 
     def _key_part(self, name: str, value: Any) -> Any:
+        """An argument's part of the key: its converter's result, or its value(s) as ``_value_key`` gives them."""
         if name in self.converters:
             return self.converters[name](value)
         if name == self._var_positional:
@@ -128,6 +129,7 @@ class ArgSpec:
         return value
 
     def _raise_unhashable(self, parts: list[Any]) -> None:
+        """Raise a ``TypeError`` naming the first argument whose part of the key is unhashable."""
         for name, part in zip(self.key_names, parts, strict=True):
             try:
                 hash(part)
@@ -199,6 +201,7 @@ class ArgSpec:
     def _resolve_converters(
         self, converters: Mapping[ArgRef, Callable[[Any], Any]], omitted: set[str]
     ) -> dict[str, Callable[[Any], Any]]:
+        """Check ``key_converters`` (none for omitted or passed-through arguments) and key it by parameter name."""
         if not isinstance(converters, Mapping):
             raise TypeError(f"{self.qualname}: key_converters must be a mapping {{argument: function}}")
         resolved: dict[str, Callable[[Any], Any]] = {}
@@ -217,6 +220,7 @@ class ArgSpec:
 
 
 def _is_hashable(value: Any) -> bool:
+    """Whether ``hash(value)`` works."""
     try:
         hash(value)
     except TypeError:
@@ -225,6 +229,7 @@ def _is_hashable(value: Any) -> bool:
 
 
 def _advice(name: str) -> str:
+    """The fixes to suggest for an unhashable argument ``name``."""
     return (
         f"Make it hashable with key_converters={{{name!r}: ...}} (e.g. a function returning a tuple or bytes), "
         f"or, if it doesn't affect the result, leave it out with omit=[{name!r}]."

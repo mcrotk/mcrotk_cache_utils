@@ -103,6 +103,7 @@ def index_key(idx: Any) -> IndexKey:
 
 
 def _index_key(idx: Any) -> IndexKey:
+    """An Index's key: whether it's a MultiIndex, and each level's name, dtype and values."""
     import pandas as pd
 
     levels = [idx.get_level_values(i) for i in range(idx.nlevels)]
@@ -125,6 +126,7 @@ def _values_key(values: Any) -> Any:
 
 
 def _pandas(helper: str) -> Any:
+    """The pandas module, or an ``ImportError`` saying that ``helper`` needs the ``pandas`` extra."""
     try:
         import pandas as pd
     except ImportError as e:

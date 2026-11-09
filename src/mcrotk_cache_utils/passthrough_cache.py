@@ -38,6 +38,7 @@ class PassthroughView(MutableMapping):
         self._cache[key.plain()] = self._strip(key, result)
 
     def setdefault(self, key: PassthroughKey, default: Any = None) -> Any:
+        """Store ``default`` unless ``key`` has a result; return this call's result either way."""
         # Used by cachetools' locked wrapper after a miss. If another thread stored this key
         # meanwhile, keep this call's own result: its passed-through outputs (e.g. its own
         # advanced RNG) are the right ones for this caller.

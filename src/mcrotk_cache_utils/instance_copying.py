@@ -38,6 +38,8 @@ class CacheCopyWarning(UserWarning):
 
 
 class CachedMethodInfo(NamedTuple):
+    """A cached method found in a class, with what copying needs to know about it."""
+
     name: str  # the method's name in its class (also the key of its cachetools wrapper in instances)
     cache_attr: str
     on_copy: str
@@ -122,6 +124,7 @@ def check_copy_handling(cls: type) -> None:
 
 
 def _warn_once(cls: type, theirs: list[str]) -> None:
+    """Give a :class:`CacheCopyWarning` for ``cls``, which defines its own ``theirs`` methods, once per class."""
     if cls in _warned:
         return
     _warned.add(cls)
