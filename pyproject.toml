@@ -16,6 +16,10 @@ numpy = [
     # first numpy release with Python 3.11 wheels (default_rng itself dates from 1.17)
     "numpy>=1.23.2",
 ]
+pandas = [
+    # first pandas release with Python 3.11 wheels
+    "pandas>=1.5.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
@@ -24,6 +28,7 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "numpy",
+    "pandas",
     "pyright>=1.1.414",
     "pytest>=9.2.0",
     "ruff>=0.17.4",

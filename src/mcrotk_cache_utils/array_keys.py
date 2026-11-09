@@ -29,7 +29,13 @@ def is_array(value: Any) -> bool:
 
 
 def array_key(array: Any) -> ArrayKey:
-    """The cache key of a plain numpy array. Raises ``TypeError`` for object arrays (their data is pointers)."""
+    """A hashable stand-in for a numpy array: its shape, dtype and a hash of its data.
+
+    Applied automatically to array arguments (``ndarray`` and ``memmap``); use it in
+    ``key_converters`` for other array types whose data alone determines the result. Equal
+    values in any memory layout get the same key. Raises ``TypeError`` for object arrays (their
+    data is pointers to the objects).
+    """
     import numpy as np
 
     if array.dtype.hasobject:

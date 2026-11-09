@@ -6,7 +6,7 @@ on:
   pull_request:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * 1" # Mondays: catches new cachetools/numpy releases (the dependency jobs don't use uv.lock)
+    - cron: "0 6 * * 1" # Mondays: catches new cachetools/numpy/pandas releases (the dependency jobs don't use uv.lock)
 
 jobs:
   lint:
@@ -46,10 +46,10 @@ jobs:
         include:
           - name: minimum
             python-version: "3.11"
-            pins: --with cachetools==8.0.0 --with numpy==1.23.2
+            pins: --with cachetools==8.0.0 --with numpy==1.23.2 --with pandas==1.5.0
           - name: latest
             python-version: "3.15"
-            pins: --refresh --with cachetools --with numpy
+            pins: --refresh --with cachetools --with numpy --with pandas
     name: dependencies (${{ matrix.name }})
     runs-on: ubuntu-latest
     steps:

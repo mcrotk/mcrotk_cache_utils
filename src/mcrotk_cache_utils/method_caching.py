@@ -77,6 +77,8 @@ def cached_method(
         key_converters: ``{argument: function}``: the function's result is used in the key in
             place of the argument's value, e.g. to make an unhashable argument hashable
             (``{'items': tuple}`` for a list). It replaces the automatic handling of arrays.
+            Ready-made converters: :func:`container_key` (lists, dicts, sets, nested),
+            :func:`dataframe_key` and :func:`array_key`.
         lock, condition, info: Passed to :func:`cachetools.cachedmethod` (``lock`` and
             ``condition`` are functions of ``self`` returning the instance's lock/condition).
             With ``info=True``, ``obj.method.cache_info()`` gives hit and miss counts.

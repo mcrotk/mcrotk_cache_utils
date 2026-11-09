@@ -1,8 +1,12 @@
 """Caching decorators for methods and functions, built on cachetools.
 
-Per-instance caches for methods, argument omission, passthrough (e.g. for RNGs) and key converters.
+Per-instance caches for methods, argument omission, passthrough (e.g. for RNGs), key converters, and
+key helpers for arrays, containers and DataFrames.
 """
 
+from .array_keys import array_key
+from .container_keys import container_key
+from .dataframe_keys import dataframe_key
 from .function_caching import cached_function
 from .instance_copying import CacheCopyWarning, copy_instance
 from .method_caching import cached_method, clear_caches
@@ -10,10 +14,13 @@ from .rng_caching import rng_cached_function, rng_cached_method
 
 __all__ = [
     "CacheCopyWarning",
+    "array_key",
     "cached_function",
     "cached_method",
     "clear_caches",
+    "container_key",
     "copy_instance",
+    "dataframe_key",
     "rng_cached_function",
     "rng_cached_method",
 ]

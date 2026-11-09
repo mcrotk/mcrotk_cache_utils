@@ -6,7 +6,7 @@ Caching decorators for methods and functions, built on [cachetools](https://gith
 - **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; a method's `self` is left out.
 - **`omit=`**: leave arguments that don't affect the result out of the key.
 - **numpy arrays as arguments**: keyed by their contents (shape, dtype and a hash of the data), so equal arrays share a result and an array changed in place doesn't get a stale one.
-- **`key_converters=`**: make other unhashable arguments (lists, ...) usable in the key.
+- **`key_converters=`**: make other unhashable arguments usable in the key, with ready-made converters for lists, dicts and sets (`container_key`) and pandas DataFrames (`dataframe_key`).
 - **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
 - **Safe copying**: `copy.copy` and `copy.deepcopy` give copies whose cached methods run on the copy, with caches emptied or copied as you choose (`on_copy=`).
 - All of cachetools' cache types (`LRUCache`, `TTLCache`, ...) and its `lock`, `condition` and `info` options.
@@ -58,6 +58,28 @@ clear_caches(model, "fit")  # just one
 ```
 
 Positions can be used instead of names, counting the parameters as in the `def` line from 0 (so a method's `self` is 0), with negative positions counting from the end. Names are clearer.
+
+## Unhashable arguments
+
+Cache keys must be hashable. numpy arrays are handled automatically. For other unhashable arguments, give a converter:
+
+```python
+from functools import partial
+
+from mcrotk_cache_utils import cached_method, container_key, dataframe_key
+
+
+class Model:
+    @cached_method(key_converters={"weights": container_key, "data": dataframe_key})
+    def fit(self, data, weights): ...
+
+    @cached_method(key_converters={"spec": partial(container_key, type_tags=False)})
+    def summarize(self, spec): ...
+```
+
+- `container_key(value, type_tags=True)`: lists and tuples become tuples, sets become frozensets and dicts become frozensets of their `(key, value)` pairs, recursively (arrays inside are keyed by content). With `type_tags=True` each container's exact type is kept, so `[2, 3]` and `(2, 3)` get separate entries; with `False` they share one.
+- `dataframe_key(df, index=True)`: the column labels, dtypes and a hash of each column's values (pandas' `hash_pandas_object`), plus the index's values, dtypes and names. Use `index=False` only if the result doesn't depend on the index: a result that carries the index (e.g. `df["x"] * 2`) would come back with the old index for a DataFrame with the same values under different labels.
+- `array_key(arr)`: what's applied to arrays automatically, for use in your own converters.
 
 ## Functions, static methods and class methods
 
@@ -112,4 +134,4 @@ For a different choice for one copy, use `copy_instance(obj, caches="empty" | "c
 - Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).
 - Processes: a function's cache isn't shared between processes; worker processes start with empty caches. Pickling an instance carries its method caches along.
 
-Requires Python 3.11+ and cachetools 8+; the RNG decorators also need numpy (`pip install 'mcrotk-cache-utils[numpy]'`).
+Requires Python 3.11+ and cachetools 8+; the RNG decorators also need numpy (`pip install 'mcrotk-cache-utils[numpy]'`), and `dataframe_key` needs pandas 1.5+ (`[pandas]`).
