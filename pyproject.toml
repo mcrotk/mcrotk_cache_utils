@@ -27,6 +27,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "mypy",
     "numpy",
     "pandas",
     "pyright>=1.1.414",
@@ -44,6 +45,15 @@ target-version = "py311"
 [tool.ruff.lint]
 # pycodestyle, pyflakes, import sorting, pyupgrade, bugbear
 select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.mypy]
+# Only the typing tests: they check what users' code sees (follow_imports=silent keeps mypy's
+# findings in the library's own source out of the report; pyright checks that).
+files = ["tests/test_typing.py"]
+python_version = "3.11"
+check_untyped_defs = true
+warn_unused_ignores = true
+follow_imports = "silent"
 
 [tool.pyright]
 include = ["src", "tests"]

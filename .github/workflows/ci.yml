@@ -17,6 +17,7 @@ jobs:
       - run: uv run --locked ruff check .
       - run: uv run --locked ruff format --check .
       - run: uv run --locked pyright
+      - run: uv run --locked mypy # the typing tests (see [tool.mypy] in pyproject.toml)
 
   tests:
     # Locked dependencies (uv.lock) on every supported Python
