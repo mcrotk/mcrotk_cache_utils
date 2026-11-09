@@ -18,7 +18,7 @@ import cachetools
 import numpy as np
 import pytest
 
-from mcrotk_cache_utils import CacheCopyWarning, cached_method, clear_caches, rng_cached_method
+from mcrotk_cache_utils import CacheCopyWarning, cached_method, clear_caches, copy_instance, rng_cached_method
 
 COPIERS = pytest.mark.parametrize("copier", [copy.copy, copy.deepcopy], ids=["copy", "deepcopy"])
 
@@ -610,3 +610,93 @@ def test_subclass_adding_own_copy_warns_at_first_use_once():
 def test_invalid_on_copy_value():
     with pytest.raises(ValueError, match="on_copy must be one of"):
         cached_method(on_copy="deep")  # pyright: ignore[reportArgumentType]
+
+
+# --- copy_instance ---
+
+DEPTHS = pytest.mark.parametrize("deep", [False, True], ids=["shallow", "deep"])
+
+
+@DEPTHS
+def test_copy_instance_follows_on_copy_by_default(deep):
+    o = used_sim()
+    c = copy_instance(o, deep=deep)
+    assert "_Sim_f_cache" not in vars(c) and len(cache(c, "_Sim_kept_cache")) == 1
+    assert (c.data is o.data) != deep
+
+
+@DEPTHS
+@pytest.mark.parametrize("caches", ["empty", "copy"])
+def test_copy_instance_overrides_every_method(deep, caches):
+    o = used_sim()
+    c = copy_instance(o, caches, deep=deep)
+    for attr in ("_Sim_f_cache", "_Sim_kept_cache", "_Sim_p_cache", "_Sim_g_cache", "_Base_g_cache"):
+        if caches == "empty":
+            assert attr not in vars(c)
+        else:
+            assert len(cache(c, attr)) == 1 and cache(c, attr) is not cache(o, attr)
+    c.scale = 10
+    assert c.f(7) == (id(c), 70) and c.g(7) == ("Sim.g", id(c), ("Base.g", id(c), 70))  # runs on the copy
+
+
+def test_copy_instance_copy_shares_results_deep_duplicates_them():
+    o = Lists()
+    r = o.items(3)
+    assert copy_instance(o, "copy").items(3) is r
+    deep = copy_instance(o, "copy", deep=True).items(3)
+    assert deep == r and deep is not r
+
+
+class OwnCopy:
+    """A class with its own copy methods, using copy_instance inside them."""
+
+    def __init__(self):
+        self.scratch = "work in progress"
+        self.me = self
+        self.items = []
+
+    @cached_method(on_copy="manual")
+    def f(self, x):
+        return id(self), x
+
+    def __copy__(self):
+        new = copy_instance(self)
+        new.scratch = None
+        return new
+
+    def __deepcopy__(self, memo):
+        new = copy_instance(self, "copy", memo=memo)
+        new.scratch = None
+        return new
+
+
+def test_copy_instance_inside_own_copy_methods():
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # 'manual' with own copy methods: no warning at creation or first use
+        o = OwnCopy()
+        o.f(1)
+    c = copy.copy(o)
+    assert c.scratch is None and c.me is o  # their __copy__ ran (shallow: me still refers to the original)
+    assert "_OwnCopy_f_cache" not in vars(c) and c.f(1) == (id(c), 1)  # 'manual' emptied by default
+    d = copy.deepcopy(o)
+    assert d.scratch is None and d.me is d  # memo passed through: the self-reference points at the copy
+    assert d.f(1) == (id(o), 1) and d.f(2) == (id(d), 2)  # cache copied, new calls on the copy
+    pair = copy.deepcopy([o, o])
+    assert pair[0] is pair[1]
+    copied, items = copy.deepcopy([o, o.items])  # an attribute shared with another part of what's copied
+    assert isinstance(copied, OwnCopy) and copied.items is items and items is not o.items
+
+
+def test_copy_instance_without_cached_methods():
+    @dataclasses.dataclass
+    class Plain:
+        items: list
+
+    o = Plain([1])
+    assert copy_instance(o) == o and copy_instance(o).items is o.items
+    assert copy_instance(o, deep=True).items is not o.items
+
+
+def test_copy_instance_bad_caches_value():
+    with pytest.raises(ValueError, match="caches must be"):
+        copy_instance(Sim(), "manual")  # pyright: ignore[reportArgumentType]
