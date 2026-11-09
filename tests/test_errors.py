@@ -4,7 +4,12 @@ import importlib.util
 
 import pytest
 
-from mcrotk_cache_utils import cached_function, cached_method, rng_cached_function, rng_cached_method
+from mcrotk_cache_utils import (
+    cached_function,
+    cached_method,
+    rng_passthrough_cached_function,
+    rng_passthrough_cached_method,
+)
 
 needs_numpy = pytest.mark.skipif(importlib.util.find_spec("numpy") is None, reason="needs numpy")
 
@@ -117,7 +122,7 @@ def test_return_value_must_be_tuple_with_valid_positions():
 @needs_numpy
 def test_rng_arg_also_in_passthrough():
     with pytest.raises(ValueError, match="rng_arg"):
-        rng_cached_method(passthrough={"rng": 0})
+        rng_passthrough_cached_method(passthrough={"rng": 0})
 
 
 def test_existing_non_cache_attribute():
@@ -194,5 +199,5 @@ def test_function_return_value_must_be_tuple():
 
 @needs_numpy
 def test_rng_function_arg_also_in_passthrough():
-    with pytest.raises(ValueError, match="rng_cached_function: 'rng' is set by rng_arg"):
-        rng_cached_function(passthrough={"rng": 0})
+    with pytest.raises(ValueError, match="rng_passthrough_cached_function: 'rng' is set by rng_arg"):
+        rng_passthrough_cached_function(passthrough={"rng": 0})

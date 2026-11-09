@@ -1,6 +1,6 @@
 import pytest
 
-from mcrotk_cache_utils import cache_controls, rng_cached_function, rng_cached_method
+from mcrotk_cache_utils import cache_controls, rng_passthrough_cached_function, rng_passthrough_cached_method
 
 np = pytest.importorskip("numpy")
 
@@ -10,19 +10,19 @@ class Sim:
         self.scale = scale
         self.runs = 0
 
-    @rng_cached_method
+    @rng_passthrough_cached_method
     def draw(self, n, rng=None):
         self.runs += 1
         rng = np.random.default_rng(rng)
         return self.scale * rng.normal(size=n).sum(), rng
 
-    @rng_cached_method
+    @rng_passthrough_cached_method
     def nested(self, n, rng=None):
         a, rng = self.draw(n, rng=rng)
         b, rng = self.draw(n + 1, rng=rng)
         return a + b, rng
 
-    @rng_cached_method(rng_arg="gen", rng_output=0)
+    @rng_passthrough_cached_method(rng_arg="gen", rng_output=0)
     def first(self, n, gen=None):
         gen = np.random.default_rng(gen)
         return gen, gen.random(n).sum()
@@ -140,7 +140,7 @@ def test_rng_passed_positionally():
 
 def test_info_with_rng_passthrough():
     class C:
-        @rng_cached_method(info=True)
+        @rng_passthrough_cached_method(info=True)
         def f(self, n, rng=None):
             rng = np.random.default_rng(rng)
             return rng.random(n).sum(), rng
@@ -153,10 +153,10 @@ def test_info_with_rng_passthrough():
 
 
 def make_draw():
-    """A fresh rng_cached_function and the list of its runs (a function's cache lasts as long as it does)."""
+    """A fresh passthrough-cached function and the list of its runs (a function's cache lasts as long as it does)."""
     runs = []
 
-    @rng_cached_function
+    @rng_passthrough_cached_function
     def draw(n, rng=None):
         runs.append(n)
         rng = np.random.default_rng(rng)
@@ -198,7 +198,7 @@ def test_function_rng_not_stored_and_positional_rng():
 
 
 def test_function_custom_arg_and_output_position():
-    @rng_cached_function(rng_arg=0, rng_output=0)  # the first parameter, by position
+    @rng_passthrough_cached_function(rng_arg=0, rng_output=0)  # the first parameter, by position
     def first(gen, n):
         gen = np.random.default_rng(gen)
         return gen, gen.random(n).sum()
@@ -214,14 +214,14 @@ def test_rng_static_and_class_methods():
         runs = 0
 
         @staticmethod
-        @rng_cached_function
+        @rng_passthrough_cached_function
         def draw(n, rng=None):
             S.runs += 1
             rng = np.random.default_rng(rng)
             return rng.random(n).sum(), rng
 
         @classmethod
-        @rng_cached_function(info=True)
+        @rng_passthrough_cached_function(info=True)
         def scaled(cls, n, rng=None):
             value, rng = cls.draw(n, rng=rng)
             return 2 * value, rng

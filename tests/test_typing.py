@@ -22,8 +22,8 @@ from mcrotk_cache_utils import (
     cached_method,
     clear_caches,
     copy_instance,
-    rng_cached_function,
-    rng_cached_method,
+    rng_passthrough_cached_function,
+    rng_passthrough_cached_method,
 )
 
 T = TypeVar("T")
@@ -174,13 +174,13 @@ def test_copies_keep_the_type():
 def test_rng_decorators():
     import numpy as np
 
-    @rng_cached_function
+    @rng_passthrough_cached_function
     def draw(n: int, rng: Any = None) -> tuple[float, np.random.Generator]:
         rng = np.random.default_rng(rng)
         return float(rng.random(n).sum()), rng
 
     class Sim:
-        @rng_cached_method(info=True)
+        @rng_passthrough_cached_method(info=True)
         def draw(self, n: int, rng: Any = None) -> tuple[float, np.random.Generator]:
             rng = np.random.default_rng(rng)
             return float(rng.random(n).sum()), rng

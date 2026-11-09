@@ -68,8 +68,8 @@ def test_core_works_without_numpy_and_pandas():
 @pytest.mark.parametrize(
     "code, message",
     [
-        ("rng_cached_method(lambda self, rng=None: (1, rng))", "rng_cached_method needs numpy"),
-        ("rng_cached_function(lambda rng=None: (1, rng))", "rng_cached_function needs numpy"),
+        ("rng_passthrough_cached_method(lambda self, rng=None: (1, rng))", "rng_passthrough_cached_method needs numpy"),
+        ("rng_passthrough_cached_function(lambda rng=None: (1, rng))", "rng_passthrough_cached_function needs numpy"),
         ("array_key([1])", "array_key needs numpy"),
         ("dataframe_key({'x': [1]})", "dataframe_key needs pandas"),
         ("series_key([1])", "series_key needs pandas"),
@@ -79,7 +79,8 @@ def test_core_works_without_numpy_and_pandas():
 def test_helpful_errors_without_numpy_and_pandas(code, message):
     output = run(f"""
         from mcrotk_cache_utils import (
-            array_key, dataframe_key, index_key, rng_cached_function, rng_cached_method, series_key
+            array_key, dataframe_key, index_key, series_key,
+            rng_passthrough_cached_function, rng_passthrough_cached_method,
         )
 
         try:
@@ -95,7 +96,7 @@ def test_numpy_without_pandas():
     output = run(
         """
         import numpy as np
-        from mcrotk_cache_utils import cached_function, dataframe_key, rng_cached_function
+        from mcrotk_cache_utils import cached_function, dataframe_key, rng_passthrough_cached_function
 
         calls = []
 
@@ -108,7 +109,7 @@ def test_numpy_without_pandas():
         total(np.arange(3))
         assert len(calls) == 1
 
-        @rng_cached_function
+        @rng_passthrough_cached_function
         def draw(n, rng=None):
             rng = np.random.default_rng(rng)
             return rng.random(n), rng

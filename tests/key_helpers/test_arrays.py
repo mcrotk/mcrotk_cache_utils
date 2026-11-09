@@ -9,7 +9,7 @@ import tempfile
 
 import pytest
 
-from mcrotk_cache_utils import array_key, cache_controls, cached_function, cached_method, rng_cached_method
+from mcrotk_cache_utils import array_key, cache_controls, cached_function, cached_method, rng_passthrough_cached_method
 
 np = pytest.importorskip("numpy")
 
@@ -43,7 +43,7 @@ class Sim:
         self.calls += 1
         return n
 
-    @rng_cached_method
+    @rng_passthrough_cached_method
     def draw(self, assignments, rng=None):
         self.calls += 1
         rng = np.random.default_rng(rng)

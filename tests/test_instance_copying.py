@@ -23,7 +23,7 @@ from mcrotk_cache_utils import (
     cached_method,
     clear_caches,
     copy_instance,
-    rng_cached_method,
+    rng_passthrough_cached_method,
 )
 
 COPIERS = pytest.mark.parametrize("copier", [copy.copy, copy.deepcopy], ids=["copy", "deepcopy"])
@@ -447,11 +447,11 @@ def test_lock_function_attribute_is_shared_by_shallow_copy():
     assert c.lock is o.lock and c.f(1) == (id(o), 1) and c.f(2) == (id(c), 2)
 
 
-def test_rng_cached_method_on_copy():
+def test_rng_passthrough_cached_method_on_copy():
     np = pytest.importorskip("numpy")
 
     class S:
-        @rng_cached_method(on_copy="copy")
+        @rng_passthrough_cached_method(on_copy="copy")
         def draw(self, n, rng=None):
             rng = np.random.default_rng(rng)
             return rng.random(n).sum(), rng
