@@ -6,6 +6,8 @@ from typing import Any
 
 import cachetools.keys
 
+from .array_keys import array_key, is_array
+
 ArgRef = str | int  # an argument, by name or by position in the def line (counting self or cls)
 Passthrough = tuple[int, Callable[[Any], Any] | None]  # (output position, transform)
 
@@ -77,8 +79,8 @@ class ArgSpec:
 
         left_out = {self.self_name} | omitted | set(self.passthrough)  # self_name None (functions) matches nothing
         self.key_names = tuple(p.name for p in self._params if p.name not in left_out)
-        var_kw = [p.name for p in self._params if p.kind is inspect.Parameter.VAR_KEYWORD]
-        self._var_keyword = var_kw[0] if var_kw else None
+        self._var_positional = next((p.name for p in self._params if p.kind is inspect.Parameter.VAR_POSITIONAL), None)
+        self._var_keyword = next((p.name for p in self._params if p.kind is inspect.Parameter.VAR_KEYWORD), None)
 
     def make_key(self, /, *args: Any, **kwargs: Any) -> tuple:
         """Build the cache key for a call (for a method, ``args`` starts with the instance)."""
@@ -101,9 +103,22 @@ class ArgSpec:
     def _key_part(self, name: str, value: Any) -> Any:
         if name in self.converters:
             return self.converters[name](value)
+        if name == self._var_positional:
+            return tuple(self._value_key(name, v) for v in value)
         if name == self._var_keyword:
-            return tuple(sorted(value.items()))
-        return value
+            return tuple(sorted((k, self._value_key(name, v)) for k, v in value.items()))
+        return self._value_key(name, value)
+
+    def _value_key(self, name: str, value: Any) -> Any:
+        """A value as it goes in the key: numpy arrays by their contents, anything else as it is."""
+        if not is_array(value):
+            return value
+        try:
+            return array_key(value)
+        except TypeError as e:
+            raise TypeError(
+                f"{self.qualname}: can't use argument {name!r} in the cache key: {e}. {_advice(name)}"
+            ) from None
 
     def _raise_unhashable(self, parts: list[Any]) -> None:
         for name, part in zip(self.key_names, parts, strict=True):
@@ -113,9 +128,7 @@ class ArgSpec:
                 what = f"the converted value of argument {name!r}" if name in self.converters else f"argument {name!r}"
                 raise TypeError(
                     f"{self.qualname}: can't use {what} in the cache key: {type(part).__name__} is unhashable. "
-                    f"Make it hashable with key_converters={{{name!r}: ...}} "
-                    f"(e.g. a function returning a tuple or bytes), "
-                    f"or, if it doesn't affect the result, leave it out with omit=[{name!r}]."
+                    + _advice(name)
                 ) from e
         raise TypeError(f"{self.qualname}: cache key is unhashable")  # not expected: some part should fail above
 
@@ -188,6 +201,13 @@ class ArgSpec:
                 raise TypeError(f"{self.qualname}: key converter for {name!r} must be callable")
             resolved[name] = converter
         return resolved
+
+
+def _advice(name: str) -> str:
+    return (
+        f"Make it hashable with key_converters={{{name!r}: ...}} (e.g. a function returning a tuple or bytes), "
+        f"or, if it doesn't affect the result, leave it out with omit=[{name!r}]."
+    )
 
 
 def _as_refs(refs: ArgRef | Iterable[ArgRef]) -> tuple[ArgRef, ...]:

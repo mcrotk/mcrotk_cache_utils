@@ -1,6 +1,5 @@
 """Errors raised when the decorator is applied (bad options) and when a call can't be cached."""
 
-import numpy as np
 import pytest
 
 from mcrotk_cache_utils import cached_function, cached_method, rng_cached_function, rng_cached_method
@@ -87,9 +86,9 @@ class C:
 
 def test_unhashable_argument_message():
     with pytest.raises(TypeError) as e:
-        C().f(np.zeros(3))
+        C().f([1, 2])
     msg = str(e.value)
-    assert "argument 'arr'" in msg and "ndarray is unhashable" in msg
+    assert "argument 'arr'" in msg and "list is unhashable" in msg
     assert "key_converters={'arr': ...}" in msg and "omit=['arr']" in msg
 
 
@@ -128,10 +127,10 @@ def test_unhashable_argument_in_passthrough_method():
     class P:
         @cached_method(passthrough={"t": -1})
         def f(self, arr, t):
-            return arr.sum(), t
+            return sum(arr), t
 
-    with pytest.raises(TypeError, match="argument 'arr'.*ndarray is unhashable"):
-        P().f(np.zeros(2), "t")
+    with pytest.raises(TypeError, match="argument 'arr'.*list is unhashable"):
+        P().f([1, 2], "t")
 
 
 def decorate_function(**options):
@@ -170,7 +169,7 @@ def takes_array(arr):
 
 def test_function_unhashable_argument_message():
     with pytest.raises(TypeError) as e:
-        takes_array(np.zeros(3))
+        takes_array([1, 2])
     msg = str(e.value)
     assert msg.startswith("takes_array: can't use argument 'arr'") and "key_converters={'arr': ...}" in msg
 

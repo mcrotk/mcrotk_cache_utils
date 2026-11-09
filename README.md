@@ -5,7 +5,8 @@ Caching decorators for methods and functions, built on [cachetools](https://gith
 - **For methods, a separate cache per instance**, created on first use: no cache field to declare, nothing added to `==` or `repr`, and it works on frozen dataclasses.
 - **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; a method's `self` is left out.
 - **`omit=`**: leave arguments that don't affect the result out of the key.
-- **`key_converters=`**: make unhashable arguments (lists, arrays, ...) usable in the key.
+- **numpy arrays as arguments**: keyed by their contents (shape, dtype and a hash of the data), so equal arrays share a result and an array changed in place doesn't get a stale one.
+- **`key_converters=`**: make other unhashable arguments (lists, ...) usable in the key.
 - **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
 - **Safe copying**: `copy.copy` and `copy.deepcopy` give copies whose cached methods run on the copy, with caches emptied or copied as you choose (`on_copy=`).
 - All of cachetools' cache types (`LRUCache`, `TTLCache`, ...) and its `lock`, `condition` and `info` options.
@@ -105,6 +106,7 @@ For a different choice for one copy, use `copy_instance(obj, caches="empty" | "c
 ## Caveats
 
 - Leaving an argument out of the key (`omit`, `passthrough`) is only right if it doesn't affect the result.
+- numpy arrays are hashed on every call, hit or miss: cheap next to most computations on them, but it reads the whole array. Object arrays and array subclasses (masked arrays, ...) aren't handled: use `key_converters`.
 - Instance attributes aren't part of the key: after changing one that affects results, call `clear_caches(obj)`.
 - Cached objects are returned as stored, not copied.
 - Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).

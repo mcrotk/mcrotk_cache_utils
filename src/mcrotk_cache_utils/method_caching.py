@@ -55,6 +55,11 @@ def cached_method(
     always left out. Instance attributes are not part of the key: if you change an attribute
     that affects results, call :func:`clear_caches`.
 
+    **numpy arrays** (``ndarray`` and ``memmap``, also among ``*args`` and ``**kwargs``) go in
+    the key by their contents: shape, dtype and a hash of the data, computed on every call. So
+    equal arrays share a result, and an array changed in place gets a new key. Object arrays
+    and other array types (masked arrays, ...) need ``key_converters``.
+
     Args:
         cache_factory: Makes each instance's cache. Default ``dict`` (unbounded). Any
             cachetools cache works, e.g. ``lambda: cachetools.LRUCache(maxsize=128)``.
@@ -71,7 +76,7 @@ def cached_method(
             same type.
         key_converters: ``{argument: function}``: the function's result is used in the key in
             place of the argument's value, e.g. to make an unhashable argument hashable
-            (``{'arr': lambda a: a.tobytes()}``).
+            (``{'items': tuple}`` for a list). It replaces the automatic handling of arrays.
         lock, condition, info: Passed to :func:`cachetools.cachedmethod` (``lock`` and
             ``condition`` are functions of ``self`` returning the instance's lock/condition).
             With ``info=True``, ``obj.method.cache_info()`` gives hit and miss counts.
