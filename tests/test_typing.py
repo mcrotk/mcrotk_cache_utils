@@ -146,6 +146,26 @@ def test_methods():
     assert m.fit(2, scale=3.0) == [6.0, 6.0] and m.label("a") == "A"
 
 
+def test_options_are_accepted():
+    decorators = [
+        cached_method(cache_factory=dict, omit=["a", 1], key_converters={"a": str}, info=True, on_copy="copy"),
+        cached_method(lock=lambda self: self.lock, condition=None, passthrough={"t": (-1, None)}),
+        cached_function(cache_factory=dict, omit="a", info=False, lock=None, condition=None),
+        rng_omit_cached_method(rng_arg="gen", omit="verbose", on_copy="empty"),
+        rng_omit_cached_function(rng_arg=0, info=True),
+    ]
+    assert all(callable(d) for d in decorators)
+
+
+@needs_numpy
+def test_rng_passthrough_options_are_accepted():
+    decorators = [
+        rng_passthrough_cached_method(rng_arg="gen", rng_output=0, passthrough={"t": 1}, on_copy="copy"),
+        rng_passthrough_cached_function(rng_arg=1, rng_output=-1, info=True),
+    ]
+    assert all(callable(d) for d in decorators)
+
+
 def test_rng_omit_decorators():
     assert_type(sample(2, rng=1), float)
     assert_type(sample_gen(2), list[int])
@@ -227,6 +247,13 @@ if TYPE_CHECKING:
     Model().label(1)  # type: ignore
     double(2.5)  # type: ignore
     sample("two")  # type: ignore
+    # Options: misspelled, belonging to another decorator, or of the wrong type.
+    cached_method(cachefactory=dict)  # type: ignore
+    cached_function(on_copy="empty")  # type: ignore
+    rng_omit_cached_method(rng_output=0)  # type: ignore
+    cached_method(omit=1.5)  # type: ignore
+    cached_method(on_copy="sometimes")  # type: ignore
+    rng_passthrough_cached_function(rng_output="last")  # type: ignore
     Model().sampled(2, generator=1)  # type: ignore
     cache_controls(area).cache_clear(1)  # type: ignore
     size = cache_controls(area).cache_size  # type: ignore
