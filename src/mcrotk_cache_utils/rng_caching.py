@@ -1,9 +1,10 @@
-"""Caching decorators for methods that take and return a numpy random number generator."""
+"""Caching decorators for methods and functions that take and return a numpy random number generator."""
 
 from collections.abc import Callable, Mapping
 from typing import Any
 
 from .cache_keys import ArgRef, Passthrough
+from .function_caching import cached_function
 from .method_caching import cached_method
 
 
@@ -43,18 +44,42 @@ def rng_cached_method(
         rng_arg: The RNG argument, by name or position (positions count ``self``). Default ``'rng'``.
         rng_output: Position of the RNG in the returned tuple. Default ``-1`` (last).
     """
+    combined = _rng_passthrough("rng_cached_method", rng_arg, rng_output, passthrough)
+    return cached_method(func, passthrough=combined, **kwargs)
+
+
+def rng_cached_function(
+    func: Callable[..., Any] | None = None,
+    /,
+    *,
+    rng_arg: ArgRef = "rng",
+    rng_output: int = -1,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = None,
+    **kwargs: Any,
+) -> Any:
+    """Cache a function that takes a random number generator and returns it, ignoring the RNG in the key.
+
+    The function version of :func:`rng_cached_method`, built on :func:`cached_function` (whose
+    options it takes). Also for static and class methods, with ``@staticmethod`` or
+    ``@classmethod`` above it.
+
+    Args:
+        rng_arg: The RNG argument, by name or position (as in the ``def`` line, from 0). Default ``'rng'``.
+        rng_output: Position of the RNG in the returned tuple. Default ``-1`` (last).
+    """
+    combined = _rng_passthrough("rng_cached_function", rng_arg, rng_output, passthrough)
+    return cached_function(func, passthrough=combined, **kwargs)
+
+
+def _rng_passthrough(
+    decorator: str, rng_arg: ArgRef, rng_output: int, passthrough: Mapping[ArgRef, int | Passthrough] | None
+) -> dict[ArgRef, int | Passthrough]:
+    """The ``passthrough`` option for an RNG decorator: the RNG entry plus any others given."""
     try:
         from numpy.random import default_rng
     except ImportError as e:
-        raise ImportError("rng_cached_method needs numpy: pip install 'mcrotk-cache-utils[numpy]'") from e
+        raise ImportError(f"{decorator} needs numpy: pip install 'mcrotk-cache-utils[numpy]'") from e
 
     if passthrough is not None and rng_arg in passthrough:
-        raise ValueError(
-            f"rng_cached_method: {rng_arg!r} is set by rng_arg/rng_output; don't also put it in passthrough"
-        )
-    combined = {rng_arg: (rng_output, default_rng), **(passthrough or {})}
-    return (
-        cached_method(func, passthrough=combined, **kwargs)
-        if func is not None
-        else cached_method(passthrough=combined, **kwargs)
-    )
+        raise ValueError(f"{decorator}: {rng_arg!r} is set by rng_arg/rng_output; don't also put it in passthrough")
+    return {rng_arg: (rng_output, default_rng), **(passthrough or {})}

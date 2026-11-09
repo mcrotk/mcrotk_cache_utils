@@ -1,4 +1,4 @@
-"""Resolving a decorator's argument options against a method's signature, and building cache keys."""
+"""Resolving a decorator's argument options against a function's or method's signature, and building cache keys."""
 
 import inspect
 from collections.abc import Callable, Iterable, Mapping
@@ -6,7 +6,7 @@ from typing import Any
 
 import cachetools.keys
 
-ArgRef = str | int  # an argument, by name or by position in the signature (counting self)
+ArgRef = str | int  # an argument, by name or by position in the def line (counting self or cls)
 Passthrough = tuple[int, Callable[[Any], Any] | None]  # (output position, transform)
 
 _VAR_KINDS = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
@@ -40,12 +40,17 @@ class PassthroughKey(tuple):
 
 
 class ArgSpec:
-    """A method's signature plus the decorator's options, resolved and checked at decoration time."""
+    """A function's or method's signature plus the decorator's options, resolved and checked at decoration time.
+
+    With ``has_self`` (methods), the first parameter is the instance: it's always left out of the
+    key and the options can't refer to it.
+    """
 
     def __init__(
         self,
         func: Callable[..., Any],
         *,
+        has_self: bool,
         omit: ArgRef | Iterable[ArgRef] = (),
         passthrough: Mapping[ArgRef, int | Passthrough] | None = None,
         key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = None,
@@ -53,13 +58,15 @@ class ArgSpec:
         self.qualname = getattr(func, "__qualname__", repr(func))
         self.signature = inspect.signature(func)
         self._params = list(self.signature.parameters.values())
-        if (
-            not self._params
-            or self._params[0].kind in _VAR_KINDS
-            or self._params[0].kind is inspect.Parameter.KEYWORD_ONLY
-        ):
-            raise TypeError(f"{self.qualname}: a cached method needs a first positional parameter (self)")
-        self.self_name = self._params[0].name
+        self.self_name: str | None = None
+        if has_self:
+            if (
+                not self._params
+                or self._params[0].kind in _VAR_KINDS
+                or self._params[0].kind is inspect.Parameter.KEYWORD_ONLY
+            ):
+                raise TypeError(f"{self.qualname}: a cached method needs a first positional parameter (self)")
+            self.self_name = self._params[0].name
 
         omitted = {self._resolve(ref, "omit") for ref in _as_refs(omit)}
         self.passthrough = self._resolve_passthrough(passthrough or {})
@@ -68,13 +75,13 @@ class ArgSpec:
             raise ValueError(f"{self.qualname}: argument(s) {sorted(both)} given in both omit and passthrough")
         self.converters = self._resolve_converters(key_converters or {}, omitted)
 
-        left_out = {self.self_name} | omitted | set(self.passthrough)
+        left_out = {self.self_name} | omitted | set(self.passthrough)  # self_name None (functions) matches nothing
         self.key_names = tuple(p.name for p in self._params if p.name not in left_out)
         var_kw = [p.name for p in self._params if p.kind is inspect.Parameter.VAR_KEYWORD]
         self._var_keyword = var_kw[0] if var_kw else None
 
     def make_key(self, /, *args: Any, **kwargs: Any) -> tuple:
-        """Build the cache key for a call; ``args`` starts with the instance."""
+        """Build the cache key for a call (for a method, ``args`` starts with the instance)."""
         bound = self.signature.bind(*args, **kwargs)
         bound.apply_defaults()
         arguments = bound.arguments
@@ -119,16 +126,16 @@ class ArgSpec:
         if isinstance(ref, int):
             n = len(self._params)
             if not -n <= ref < n:
+                counting = " (positions count self)" if self.self_name is not None else ""
                 raise ValueError(
-                    f"{self.qualname}: {option} position {ref} is out of range for {n} parameters "
-                    "(positions count self)"
+                    f"{self.qualname}: {option} position {ref} is out of range for {n} parameters{counting}"
                 )
             param = self._params[ref]
         else:
             if ref not in self.signature.parameters:
                 raise ValueError(f"{self.qualname}: {option} names {ref!r}, which is not a parameter")
             param = self.signature.parameters[ref]
-        if param.name == self.self_name:
+        if self.self_name is not None and param.name == self.self_name:
             raise ValueError(
                 f"{self.qualname}: {option} can't refer to {self.self_name!r} (it is always left out of the key)"
             )

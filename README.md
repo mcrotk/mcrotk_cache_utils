@@ -1,9 +1,9 @@
 # mcrotk-cache-utils
 
-Caching decorators for methods, built on [cachetools](https://github.com/tkem/cachetools):
+Caching decorators for methods and functions, built on [cachetools](https://github.com/tkem/cachetools):
 
-- **A separate cache per instance**, created on first use: no cache field to declare, nothing added to `==` or `repr`, and it works on frozen dataclasses.
-- **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; `self` is left out.
+- **For methods, a separate cache per instance**, created on first use: no cache field to declare, nothing added to `==` or `repr`, and it works on frozen dataclasses.
+- **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; a method's `self` is left out.
 - **`omit=`**: leave arguments that don't affect the result out of the key.
 - **`key_converters=`**: make unhashable arguments (lists, arrays, ...) usable in the key.
 - **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
@@ -55,7 +55,41 @@ clear_caches(model)  # all cached methods
 clear_caches(model, "fit")  # just one
 ```
 
-Positions can be used instead of names: they count `self`, as in the `def` line, and negative positions count from the end.
+Positions can be used instead of names, counting the parameters as in the `def` line from 0 (so a method's `self` is 0), with negative positions counting from the end. Names are clearer.
+
+## Functions, static methods and class methods
+
+```python
+import numpy as np
+
+from mcrotk_cache_utils import cached_function, rng_cached_function
+
+
+@cached_function(key_converters={"weights": tuple})
+def fit(data_id, weights): ...
+
+
+@rng_cached_function
+def simulate(n, rng=None):
+    rng = np.random.default_rng(rng)
+    ...
+    return result, rng
+
+
+class Model:
+    @staticmethod
+    @cached_function
+    def kernel(n): ...
+
+    @classmethod
+    @cached_function
+    def defaults(cls, n): ...  # cls is in the key: subclasses get their own entries
+
+
+fit.cache_clear()
+```
+
+The options are the same as for methods. A function has one cache, which lives as long as the program: the default is unbounded, so pass e.g. `cache_factory=lambda: cachetools.LRUCache(maxsize=128)` to bound it. Using `cached_function` directly on an ordinary method is an error (its cache would be shared by all instances); use `cached_method`.
 
 ## Caveats
 
@@ -63,5 +97,7 @@ Positions can be used instead of names: they count `self`, as in the `def` line,
 - Instance attributes aren't part of the key: after changing one that affects results, call `clear_caches(obj)`.
 - Cached objects are returned as stored, not copied.
 - Copy with `copy.deepcopy` or `dataclasses.replace`, not `copy.copy` (see the `cached_method` docstring).
+- Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).
+- Processes: a function's cache isn't shared between processes; worker processes start with empty caches. Pickling an instance carries its method caches along.
 
-Requires Python 3.11+ and cachetools 8+; `rng_cached_method` also needs numpy (`pip install 'mcrotk-cache-utils[numpy]'`).
+Requires Python 3.11+ and cachetools 8+; the RNG decorators also need numpy (`pip install 'mcrotk-cache-utils[numpy]'`).

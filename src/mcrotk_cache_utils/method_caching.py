@@ -80,7 +80,7 @@ def cached_method(
     """
 
     def decorate(func: Callable[..., Any]) -> Any:
-        spec = ArgSpec(func, omit=omit, passthrough=passthrough, key_converters=key_converters)
+        spec = ArgSpec(func, has_self=True, omit=omit, passthrough=passthrough, key_converters=key_converters)
         attr = _cache_attr_name(func)
 
         def get_cache(obj: Any) -> MutableMapping:
