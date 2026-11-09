@@ -69,11 +69,15 @@ def test_core_works_without_numpy_and_pandas():
         ("rng_cached_function(lambda rng=None: (1, rng))", "rng_cached_function needs numpy"),
         ("array_key([1])", "array_key needs numpy"),
         ("dataframe_key({'x': [1]})", "dataframe_key needs pandas"),
+        ("series_key([1])", "series_key needs pandas"),
+        ("index_key([1])", "index_key needs pandas"),
     ],
 )
 def test_helpful_errors_without_numpy_and_pandas(code, message):
     output = run(f"""
-        from mcrotk_cache_utils import array_key, dataframe_key, rng_cached_function, rng_cached_method
+        from mcrotk_cache_utils import (
+            array_key, dataframe_key, index_key, rng_cached_function, rng_cached_method, series_key
+        )
 
         try:
             {code}
