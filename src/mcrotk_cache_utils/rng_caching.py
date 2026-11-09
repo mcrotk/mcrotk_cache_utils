@@ -10,13 +10,23 @@ Two styles of such functions are covered:
   returned in place of the one stored with the result.
 """
 
-from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any, TypeVar, overload
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 from .cache_keys import ArgRef, Passthrough, _as_refs
+from .decorator_options import (
+    RngOmitFunctionOptions,
+    RngOmitMethodOptions,
+    RngPassthroughFunctionOptions,
+    RngPassthroughMethodOptions,
+)
 from .function_caching import cached_function
-from .instance_copying import OnCopy
 from .method_caching import cached_method
+
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
 
 F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
 
@@ -25,35 +35,9 @@ F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type i
 
 
 @overload
-def rng_omit_cached_method(
-    func: F,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
-) -> F: ...
+def rng_omit_cached_method(func: F, /, **options: Unpack[RngOmitMethodOptions]) -> F: ...
 @overload
-def rng_omit_cached_method(
-    func: None = None,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
-) -> Callable[[F], F]: ...
+def rng_omit_cached_method(func: None = None, /, **options: Unpack[RngOmitMethodOptions]) -> Callable[[F], F]: ...
 def rng_omit_cached_method(
     func: Callable[..., Any] | None = None,
     /,
@@ -89,33 +73,9 @@ def rng_omit_cached_method(
 
 
 @overload
-def rng_omit_cached_function(
-    func: F,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
-) -> F: ...
+def rng_omit_cached_function(func: F, /, **options: Unpack[RngOmitFunctionOptions]) -> F: ...
 @overload
-def rng_omit_cached_function(
-    func: None = None,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
-) -> Callable[[F], F]: ...
+def rng_omit_cached_function(func: None = None, /, **options: Unpack[RngOmitFunctionOptions]) -> Callable[[F], F]: ...
 def rng_omit_cached_function(
     func: Callable[..., Any] | None = None,
     /,
@@ -141,36 +101,10 @@ def rng_omit_cached_function(
 
 
 @overload
-def rng_passthrough_cached_method(
-    func: F,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    rng_output: int = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
-) -> F: ...
+def rng_passthrough_cached_method(func: F, /, **options: Unpack[RngPassthroughMethodOptions]) -> F: ...
 @overload
 def rng_passthrough_cached_method(
-    func: None = None,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    rng_output: int = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
+    func: None = None, /, **options: Unpack[RngPassthroughMethodOptions]
 ) -> Callable[[F], F]: ...
 def rng_passthrough_cached_method(
     func: Callable[..., Any] | None = None,
@@ -217,34 +151,10 @@ def rng_passthrough_cached_method(
 
 
 @overload
-def rng_passthrough_cached_function(
-    func: F,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    rng_output: int = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
-) -> F: ...
+def rng_passthrough_cached_function(func: F, /, **options: Unpack[RngPassthroughFunctionOptions]) -> F: ...
 @overload
 def rng_passthrough_cached_function(
-    func: None = None,
-    /,
-    *,
-    rng_arg: ArgRef = ...,
-    rng_output: int = ...,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
+    func: None = None, /, **options: Unpack[RngPassthroughFunctionOptions]
 ) -> Callable[[F], F]: ...
 def rng_passthrough_cached_function(
     func: Callable[..., Any] | None = None,

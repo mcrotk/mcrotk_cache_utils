@@ -1,43 +1,27 @@
 """Caching decorators for functions, including static and class methods, with one cache per function."""
 
+from __future__ import annotations
+
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
 from .cache_keys import ArgRef, ArgSpec, Passthrough
+from .decorator_options import FunctionOptions
 from .passthrough_cache import make_view
 from .placement_checks import FunctionNotInClassBody, add_check, reject_static_or_class_method
+
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
 
 F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
 
 
 @overload
-def cached_function(
-    func: F,
-    /,
-    *,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
-) -> F: ...
+def cached_function(func: F, /, **options: Unpack[FunctionOptions]) -> F: ...
 @overload
-def cached_function(
-    func: None = None,
-    /,
-    *,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Any = ...,
-    condition: Any = ...,
-    info: bool = ...,
-) -> Callable[[F], F]: ...
+def cached_function(func: None = None, /, **options: Unpack[FunctionOptions]) -> Callable[[F], F]: ...
 def cached_function(
     func: Callable[..., Any] | None = None,
     /,

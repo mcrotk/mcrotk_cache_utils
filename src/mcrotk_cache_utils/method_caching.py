@@ -1,12 +1,15 @@
 """Caching decorators for methods, with a separate cache per instance."""
 
+from __future__ import annotations
+
 import re
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
 from .cache_keys import ArgRef, ArgSpec, Passthrough
+from .decorator_options import MethodOptions
 from .instance_copying import (
     CACHE_ATTR,
     ON_COPY,
@@ -23,37 +26,16 @@ class _DescriptorChecks(MethodInClassBody, InstallsCopyMethods):
     """What we add to cachetools' method descriptor: the placement error and copy handling."""
 
 
+if TYPE_CHECKING:
+    from typing_extensions import Unpack
+
 F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
 
 
 @overload
-def cached_method(
-    func: F,
-    /,
-    *,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
-) -> F: ...
+def cached_method(func: F, /, **options: Unpack[MethodOptions]) -> F: ...
 @overload
-def cached_method(
-    func: None = None,
-    /,
-    *,
-    cache_factory: Callable[[], MutableMapping] = ...,
-    omit: ArgRef | Iterable[ArgRef] = ...,
-    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
-    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
-    lock: Callable[[Any], Any] | None = ...,
-    condition: Callable[[Any], Any] | None = ...,
-    info: bool = ...,
-    on_copy: OnCopy | None = ...,
-) -> Callable[[F], F]: ...
+def cached_method(func: None = None, /, **options: Unpack[MethodOptions]) -> Callable[[F], F]: ...
 def cached_method(
     func: Callable[..., Any] | None = None,
     /,
