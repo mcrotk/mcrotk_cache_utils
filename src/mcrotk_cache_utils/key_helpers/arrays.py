@@ -36,7 +36,10 @@ def array_key(array: Any) -> ArrayKey:
     values in any memory layout get the same key. Raises ``TypeError`` for object arrays (their
     data is pointers to the objects).
     """
-    import numpy as np
+    try:
+        import numpy as np
+    except ImportError as e:
+        raise ImportError("array_key needs numpy: pip install 'mcrotk-cache-utils[numpy]'") from e
 
     if array.dtype.hasobject:
         raise TypeError(f"arrays with object dtype ({array.dtype}) can't be hashed by content")

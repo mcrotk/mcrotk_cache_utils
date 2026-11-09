@@ -4,11 +4,9 @@ Per-instance caches for methods, argument omission, passthrough (e.g. for RNGs),
 key helpers for arrays, containers and DataFrames.
 """
 
-from .array_keys import array_key
-from .container_keys import container_key
-from .dataframe_keys import dataframe_key
 from .function_caching import cached_function
 from .instance_copying import CacheCopyWarning, copy_instance
+from .key_helpers import array_key, container_key, dataframe_key
 from .method_caching import cached_method, clear_caches
 from .rng_caching import rng_cached_function, rng_cached_method
 

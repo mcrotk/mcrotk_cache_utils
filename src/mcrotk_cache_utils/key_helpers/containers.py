@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from .array_keys import array_key, is_array
+from .arrays import array_key, is_array
 
 
 @dataclass(frozen=True)

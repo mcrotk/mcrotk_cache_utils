@@ -6,7 +6,7 @@ from typing import Any
 
 import cachetools.keys
 
-from .array_keys import array_key, is_array
+from .key_helpers.arrays import array_key, is_array
 
 ArgRef = str | int  # an argument, by name or by position in the def line (counting self or cls)
 Passthrough = tuple[int, Callable[[Any], Any] | None]  # (output position, transform)

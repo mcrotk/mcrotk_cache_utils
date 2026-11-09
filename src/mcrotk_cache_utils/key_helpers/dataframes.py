@@ -7,7 +7,7 @@ import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from .container_keys import container_key
+from .containers import container_key
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,10 @@ def dataframe_key(df: Any, *, index: bool = True) -> DataFrameKey:
             ``df['x'] * 2``, the result carries the index, and a later call with the same values
             under a different index would get the stored result with the old one.
     """
-    import pandas as pd
+    try:
+        import pandas as pd
+    except ImportError as e:
+        raise ImportError("dataframe_key needs pandas: pip install 'mcrotk-cache-utils[pandas]'") from e
 
     if not isinstance(df, pd.DataFrame):
         raise TypeError(f"dataframe_key needs a pandas DataFrame, got {type(df).__name__}")
