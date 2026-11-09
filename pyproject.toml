@@ -1,7 +1,7 @@
 [project]
 name = "mcrotk-cache-utils"
 version = "0.1.0"
-description = "Caching decorators for methods and functions: a cache per instance, keys from the bound arguments, and support for numpy arrays and random number generators."
+description = "Caching decorators for Python methods and functions: a cache per instance, easy omission or passthrough of arguments such as RNGs, safe copying."
 readme = "README.md"
 authors = [
     { name = "Michael Rotkowitz", email = "mcrotk@gmail.com" }
