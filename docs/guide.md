@@ -117,35 +117,74 @@ def step(self, x, state):
 - On a miss, the method's own result is returned (with the state as the method updated it).
 - On a hit, the stored result is returned with the caller's current argument at `output_position`.
 
-The method must return a tuple; a NamedTuple is rebuilt as the same type. `{argument: (output_position, transform)}` applies `transform` to the caller's argument on a hit, which is how the RNG decorators turn a seed into a generator.
+The method must return a tuple; a NamedTuple is rebuilt as the same type. `{argument: (output_position, transform)}` applies `transform` to the caller's argument on a hit, which is how the RNG passthrough decorators turn a seed into a generator.
 
 ## Random number generators
 
-The recommended practice for numpy's random numbers ([SPEC 7](https://scientific-python.org/specs/spec-0007/)) is to pass a generator, or a seed, into each function that needs random numbers, rather than relying on global state. A function can then also return the generator, advanced, with its result, so the caller continues the same stream:
+The recommended practice for numpy's random numbers ([SPEC 7](https://scientific-python.org/specs/spec-0007/)) is to pass a generator, or a seed, into each function that needs random numbers, rather than relying on global state: create one `Generator` where the computation starts and pass it explicitly to everything that needs it. Functions normalize the argument with `np.random.default_rng(rng)`, which returns a `Generator` it's given unchanged, so their draws advance the caller's generator in place.
+
+A generator can't usefully be part of a cache key: it's compared by identity, not by its state, so calls with different generators would never share a result.
+
+### Functions that take a generator
 
 ```python
 import numpy as np
 
-from mcrotk_cache_utils import rng_cached_method
+from mcrotk_cache_utils import rng_omit_cached_method
 
 
 class Simulation:
-    @rng_cached_method
+    @rng_omit_cached_method
     def simulate(self, n, rng=None):
-        rng = np.random.default_rng(rng)  # accepts a Generator, a seed or None
+        rng = np.random.default_rng(rng)  # a Generator, a seed or None
+        ...
+        return result
+
+
+rng = np.random.default_rng(seed)
+a = sim.simulate(1000, rng)  # computed: the draws advance rng
+b = sim.simulate(1000, rng)  # cached: nothing is drawn, rng is unchanged
+```
+
+`rng_omit_cached_method` is `cached_method` with `omit="rng"`:
+
+- **The generator isn't part of the key**, so calls differing only in their generator (or seed) share a result.
+- **On a miss**, the method draws from the caller's generator, advancing it in place.
+- **On a hit**, nothing is drawn, and the generator is unchanged.
+
+It doesn't need numpy itself, since it only leaves the argument out of the key.
+
+### Functions that also return the generator
+
+Some code also returns the generator with its result (`return result, rng`). That isn't part of the recommended practice, and when a `Generator` is passed in it adds nothing, since the caller's generator has already advanced in place. But it lets a caller who passed a seed or `None` continue the stream the function created.
+
+For such functions, leaving the generator out of the key isn't enough: on a hit, the stored result would hand back the generator from the call that computed it, not the caller's. `rng_passthrough_cached_method` handles this. It's `cached_method` with `passthrough={"rng": (-1, np.random.default_rng)}` (see [Passing arguments through](#passing-arguments-through)):
+
+```python
+from mcrotk_cache_utils import rng_passthrough_cached_method
+
+
+class Simulation:
+    @rng_passthrough_cached_method
+    def simulate(self, n, rng=None):
+        rng = np.random.default_rng(rng)
         ...
         return result, rng
 ```
 
-`rng_cached_method` is `cached_method` with `passthrough={"rng": (-1, np.random.default_rng)}`:
-
-- **The RNG isn't part of the key**, so calls differing only in their RNG share a result.
+- **The generator isn't part of the key**, as above.
 - **On a miss**, the method's own outputs are returned, including the generator it advanced.
-- **On a hit**, the stored result is returned with the caller's RNG passed through `np.random.default_rng`. A `Generator` comes back unchanged (no numbers were drawn), and a seed or `None` comes back as a new `Generator` made from it, so the caller's next call continues from it rather than reseeding.
+- **On a hit**, the stored result is returned with the caller's generator passed through `np.random.default_rng`. A `Generator` comes back unchanged (nothing was drawn), and a seed or `None` comes back as a new `Generator` made from it, so the caller's next call continues from it rather than reseeding.
 
-Caching treats a result as determined by the other arguments: the first call's draws are reused by every later call with the same arguments. That's the point when the random draws are an implementation detail (a simulation estimate you want once per set of parameters), but not when callers want fresh draws each time.
+It needs numpy (`pip install 'mcrotk-cache-utils[numpy]'`).
 
-Options: `rng_arg=` names the RNG argument (default `"rng"`), and `rng_output=` gives its position in the returned tuple (default `-1`, the last). Other passthrough arguments can be added with `passthrough=`, and all of `cached_method`'s options apply. `rng_cached_function` is the same for functions. Both need numpy (`pip install 'mcrotk-cache-utils[numpy]'`).
+### Either way
+
+Caching treats a result as determined by the other arguments: the first call's draws are reused by every later call with the same arguments. That's the point when the random draws are an implementation detail (a simulation estimate you want once per set of parameters), but not when callers want fresh draws each time. And since a hit draws nothing, the numbers drawn after a cached call differ from those of an uncached run. A run is still reproducible from its seed, as long as it starts with the same cached results (for example, none).
+
+For work in several processes, give each process its own generator, from `rng.spawn(n)` (NumPy 1.25+) or `np.random.SeedSequence(seed).spawn(n)`, rather than copies of one, which would produce the same numbers.
+
+Options: `rng_arg=` names the generator argument (default `"rng"`), and for the passthrough decorators `rng_output=` gives its position in the returned tuple (default `-1`, the last). All of `cached_method`'s options apply too, including further `omit=` or `passthrough=` entries. `rng_omit_cached_function` and `rng_passthrough_cached_function` are the same for functions.
 
 ## Functions, static methods and class methods
 

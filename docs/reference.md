@@ -5,7 +5,8 @@ Everything is imported from the package: `from mcrotk_cache_utils import cached_
 **Decorators**
 - [`cached_method`](#cached_method): cache a method, per instance.
 - [`cached_function`](#cached_function): cache a function, static method or class method.
-- [`rng_cached_method`](#rng_cached_method), [`rng_cached_function`](#rng_cached_function): the same, for methods and functions that take and return a random number generator.
+- [`rng_omit_cached_method`](#rng_omit_cached_method), [`rng_omit_cached_function`](#rng_omit_cached_function): the same, leaving a random number generator argument out of the key.
+- [`rng_passthrough_cached_method`](#rng_passthrough_cached_method), [`rng_passthrough_cached_function`](#rng_passthrough_cached_function): the same, for methods and functions that also return the generator.
 
 **Instances and caches**
 - [`clear_caches`](#clear_caches): empty an instance's caches.
@@ -64,13 +65,35 @@ Options as for [`cached_method`](#cached_method), except:
 
 There's no `on_copy`. The cache is reached with `cache_controls(f)`.
 
-## `rng_cached_method`
+## `rng_omit_cached_method`
 
 ```python
-rng_cached_method(*, rng_arg="rng", rng_output=-1, passthrough=None, **options)
+rng_omit_cached_method(*, rng_arg="rng", omit=(), **options)
 ```
 
-Cache a method that takes a numpy random number generator and returns it, leaving the generator out of the key. The same as `cached_method(passthrough={rng_arg: (rng_output, numpy.random.default_rng)})`: on a hit, the stored result is returned with the caller's generator, or a generator made from the caller's seed or `None`. Needs numpy. ([guide](guide.md#random-number-generators))
+Cache a method that takes a random number generator (or a seed), leaving the generator out of the key. The same as `cached_method(omit=rng_arg)`: calls differing only in their generator share a result; on a miss the method advances the caller's generator in place, and on a hit nothing is drawn. Doesn't need numpy itself. ([guide](guide.md#functions-that-take-a-generator))
+
+| Option | Default | Description |
+|---|---|---|
+| `rng_arg` | `"rng"` | The generator argument, by name or position. |
+| `omit` | `()` | Other arguments to leave out of the key. |
+| `**options` | | Any of [`cached_method`](#cached_method)'s options. |
+
+## `rng_omit_cached_function`
+
+```python
+rng_omit_cached_function(*, rng_arg="rng", omit=(), **options)
+```
+
+[`rng_omit_cached_method`](#rng_omit_cached_method) for functions, static methods and class methods, built on [`cached_function`](#cached_function) (whose options it takes).
+
+## `rng_passthrough_cached_method`
+
+```python
+rng_passthrough_cached_method(*, rng_arg="rng", rng_output=-1, passthrough=None, **options)
+```
+
+Cache a method that takes a random number generator (or a seed) and also returns the generator in a tuple, leaving it out of the key. The same as `cached_method(passthrough={rng_arg: (rng_output, numpy.random.default_rng)})`: on a hit, the stored result is returned with the caller's generator, or a generator made from the caller's seed or `None`, in place of the stored one. Needs numpy. ([guide](guide.md#functions-that-also-return-the-generator))
 
 | Option | Default | Description |
 |---|---|---|
@@ -79,13 +102,13 @@ Cache a method that takes a numpy random number generator and returns it, leavin
 | `passthrough` | `None` | Other arguments to pass through (not the generator). |
 | `**options` | | Any of [`cached_method`](#cached_method)'s options. |
 
-## `rng_cached_function`
+## `rng_passthrough_cached_function`
 
 ```python
-rng_cached_function(*, rng_arg="rng", rng_output=-1, passthrough=None, **options)
+rng_passthrough_cached_function(*, rng_arg="rng", rng_output=-1, passthrough=None, **options)
 ```
 
-[`rng_cached_method`](#rng_cached_method) for functions, static methods and class methods, built on [`cached_function`](#cached_function) (whose options it takes).
+[`rng_passthrough_cached_method`](#rng_passthrough_cached_method) for functions, static methods and class methods, built on [`cached_function`](#cached_function) (whose options it takes).
 
 ---
 
