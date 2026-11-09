@@ -1,7 +1,7 @@
 [project]
 name = "mcrotk-cache-utils"
 version = "0.1.0"
-description = "Per-instance method caching built on cachetools, with argument omission, pass-through and key converters (e.g. for RNG-threading functions)."
+description = "Caching decorators for methods and functions: a cache per instance, keys from the bound arguments, and support for numpy arrays and random number generators."
 readme = "README.md"
 authors = [
     { name = "Michael Rotkowitz", email = "mcrotk@gmail.com" }

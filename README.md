@@ -1,29 +1,71 @@
 # mcrotk-cache-utils
 
-Caching decorators for methods and functions, built on [cachetools](https://github.com/tkem/cachetools):
+Caching decorators for Python methods and functions, built on [cachetools](https://github.com/tkem/cachetools), that handle the details which usually make caching a method awkward.
 
-- **For methods, a separate cache per instance**, created on first use: no cache field to declare, nothing added to `==` or `repr`, and it works on frozen dataclasses.
-- **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; a method's `self` is left out.
-- **`omit=`**: leave arguments that don't affect the result out of the key.
-- **Unhashable arguments handled**: numpy arrays are keyed by their contents (shape, dtype and a hash of the data), so equal arrays share a result and an array changed in place doesn't get a stale one; lists, dicts and sets are converted to hashable equivalents.
-- **`key_converters=`**: make other arguments usable in the key, with ready-made converters such as `container_key` and, where nothing simpler will do, pandas objects (`dataframe_key`, `series_key`, `index_key`).
-- **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
-- **Safe copying**: `copy.copy` and `copy.deepcopy` give copies whose cached methods run on the copy, with caches emptied or copied as you choose (`on_copy=`).
-- All of cachetools' cache types (`LRUCache`, `TTLCache`, ...) and its `lock`, `condition` and `info` options.
+## What it's for
 
-## Example: methods that take and return an RNG
+Caching a method's results should be one line. With the standard tools it isn't:
+
+- **`functools.cache` and `lru_cache`** keep one cache for the whole class, keyed on `self`. Instances must be hashable (a regular dataclass isn't), and every instance stays in memory as long as the cache does.
+- **`cachetools.cachedmethod`** needs each instance to create and hold its own cache: on a dataclass, a field to keep out of `==` and `repr`, and on a frozen dataclass, a workaround to set it.
+- **Keys** are built from the arguments as passed, so `f(1)` and `f(x=1)` are separate entries. Arguments that don't affect the result (a `verbose` flag) can't be left out, and arrays, lists and dicts can't be used at all.
+- **Random number generators.** The recommended practice ([SPEC 7](https://scientific-python.org/specs/spec-0007/)) is to pass a numpy `Generator` (or a seed) into each function that needs random numbers; a function can then return it, advanced, with its result. Caching such a function naively breaks it: the generator is part of the key, so calls with different generators never share a result, and when a seed or `None` is passed, a hit returns the generator made during the first call (which its first caller may have advanced since), not one made from the seed.
+
+With `@cached_method`, each instance gets its own cache, created on first use and gone with the instance. Keys come from the arguments as bound to the signature. Arguments can be left out of the key, numpy arrays, lists and dicts work as arguments, and `@rng_cached_method` caches methods that take and return a generator, keeping the caller's random stream intact.
+
+## Installation
+
+```sh
+pip install mcrotk-cache-utils
+pip install 'mcrotk-cache-utils[numpy]'    # for the RNG decorators
+pip install 'mcrotk-cache-utils[pandas]'   # for the pandas key helpers
+pip install 'mcrotk-cache-utils[numpy,pandas]'   # both
+```
+
+The latest development version: `pip install "mcrotk-cache-utils @ git+https://github.com/mcrotk/mcrotk_cache_utils"`.
+
+Requires Python 3.11+ and cachetools 8+ (installed with it); numpy 1.23.2+ and pandas 1.5+ only for the features that use them.
+
+## Examples
+
+```python
+from dataclasses import dataclass
+
+from mcrotk_cache_utils import cached_method
+
+
+@dataclass
+class Portfolio:
+    weights: list[float]
+
+    @cached_method(omit="verbose")
+    def risk(self, horizon: int, verbose: bool = False) -> float:
+        if verbose:
+            print("computing...")
+        return sum(w * w for w in self.weights) * horizon
+
+
+p = Portfolio([0.5, 0.5])
+p.risk(10)  # computed
+p.risk(horizon=10)  # cached: the same call
+p.risk(10, verbose=True)  # cached: verbose isn't part of the key
+Portfolio([0.5, 0.5]).risk(10)  # computed: another instance, its own cache
+```
+
+Methods that take a random number generator and return it:
 
 ```python
 import numpy as np
+
 from mcrotk_cache_utils import rng_cached_method
 
 
 class Simulation:
-    def __init__(self, n_paths):
+    def __init__(self, n_paths: int):
         self.n_paths = n_paths
 
     @rng_cached_method
-    def mean_path(self, horizon, rng=None):
+    def mean_path(self, horizon: int, rng=None) -> tuple[np.ndarray, np.random.Generator]:
         rng = np.random.default_rng(rng)
         paths = rng.normal(size=(self.n_paths, horizon)).cumsum(axis=1)
         return paths.mean(axis=0), rng
@@ -32,126 +74,38 @@ class Simulation:
 sim = Simulation(10_000)
 rng = np.random.default_rng(0)
 mean, rng = sim.mean_path(250, rng=rng)  # computed; rng has advanced
-mean, rng = sim.mean_path(250, rng=rng)  # cached; rng returned unchanged
+mean, rng = sim.mean_path(250, rng=rng)  # cached; rng comes back as it was passed in
 ```
 
-The RNG is left out of the cache key. On a hit it comes back unused (a seed or `None` comes back as a `Generator` made from it), so the caller's random stream continues correctly.
-
-## General form
-
-```python
-from mcrotk_cache_utils import cached_method, clear_caches
-
-
-class Model:
-    @cached_method(omit="verbose", key_converters={"estimator": lambda e: e.name})
-    def fit(self, data_id, estimator, verbose=False): ...
-
-    @cached_method(passthrough={"state": (-1, normalize_state)})
-    def step(self, x, state):
-        ...
-        return result, state
-
-
-clear_caches(model)  # all cached methods
-clear_caches(model, "fit")  # just one
-```
-
-Positions can be used instead of names, counting the parameters as in the `def` line from 0 (so a method's `self` is 0), with negative positions counting from the end. Names are clearer.
-
-## Unhashable arguments
-
-Cache keys must be hashable. Two kinds of unhashable arguments are converted automatically (also inside `*args` and `**kwargs`):
-
-- **numpy arrays**, by their contents: shape, dtype and a hash of the data (`array_key`).
-- **lists, dicts and sets**, and tuples and frozensets containing them, by `container_key(value, type_tags=False)`: lists become tuples, sets become frozensets and dicts become frozensets of their `(key, value)` pairs, recursively. So `f([1, 2])` and `f((1, 2))` share a result.
-
-For anything else, or to change how an argument is keyed, give a converter:
-
-```python
-from mcrotk_cache_utils import cached_method, container_key, dataframe_key
-
-
-class Model:
-    @cached_method(key_converters={"shape": container_key})
-    def reshaped(self, shape): ...  # [2, 3] and (2, 3) get separate entries
-
-    @cached_method(key_converters={"data": dataframe_key})
-    def fit(self, data): ...
-```
-
-- `container_key(value, type_tags=True)`: as above, but by default each container's exact type is kept, so `[2, 3]` and `(2, 3)` get separate entries, as do a NamedTuple and a plain tuple. Use it when the result depends on which was passed, e.g. when it has the same type as the argument.
-- `array_key(arr)`: what's applied to arrays automatically, for use in your own converters.
-- `dataframe_key(df, index=True)`: the column labels, dtypes and a hash of each column's values (pandas' `hash_pandas_object`), plus the index's values, dtypes and names. Use `index=False` only if the result doesn't depend on the index: a result that carries the index (e.g. `df["x"] * 2`) would come back with the old index for a DataFrame with the same values under different labels.
-- `series_key(s, name=True, index=True)` and `index_key(idx)`: the same for a Series (with its name) and an Index or MultiIndex.
-
-Use the pandas helpers sparingly. Keying a pandas object by its contents reads all of it on every call (slowly for object columns), and equality between pandas objects has many corners (dtypes, labels, order, exact floats) for a key to get wrong. An argument that identifies the data, such as a path, an ID or the parameters it was made from, is usually a better key.
-
-## Functions, static methods and class methods
+Functions, with arrays as arguments:
 
 ```python
 import numpy as np
 
-from mcrotk_cache_utils import cache_controls, cached_function, rng_cached_function
+from mcrotk_cache_utils import cached_function
 
 
 @cached_function
-def fit(data_id, weights): ...  # weights can be a list
+def normalized(values: np.ndarray) -> np.ndarray:
+    return values / values.sum()
 
 
-@rng_cached_function
-def simulate(n, rng=None):
-    rng = np.random.default_rng(rng)
-    ...
-    return result, rng
-
-
-class Model:
-    @staticmethod
-    @cached_function
-    def kernel(n): ...
-
-    @classmethod
-    @cached_function
-    def defaults(cls, n): ...  # cls is in the key: subclasses get their own entries
-
-
-cache_controls(fit).cache_clear()  # or fit.cache_clear(), which type checkers don't know about
+normalized(np.arange(5.0))  # computed
+normalized(np.arange(5.0))  # cached: an equal array
 ```
 
-The options are the same as for methods. A function has one cache, which lives as long as the program: the default is unbounded, so pass e.g. `cache_factory=lambda: cachetools.LRUCache(maxsize=128)` to bound it. Using `cached_function` directly on an ordinary method is an error (its cache would be shared by all instances); use `cached_method`.
+## Features
 
-## Copying instances
+- **[A cache per instance](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#caching-methods)**, with nothing to declare: it isn't a field, so `==`, `repr` and frozen dataclasses are unaffected.
+- **[Keys from the bound arguments](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#cache-keys)**, with `omit=` for arguments that don't affect the result.
+- **[Unhashable arguments](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#unhashable-arguments)**: numpy arrays are keyed by their contents, and lists, dicts and sets are converted, automatically. Converters for anything else, with ready-made ones for pandas objects.
+- **[Random number generators](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#random-number-generators)** (`rng_cached_method`, `rng_cached_function`), built on the general **[passthrough](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#passing-arguments-through)** option.
+- **[Functions, static methods and class methods](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#functions-static-methods-and-class-methods)** (`cached_function`).
+- **[Safe copying](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#copying-and-pickling)**: `copy.copy` and `copy.deepcopy` give copies whose caches are emptied or copied, as you choose.
+- **[cachetools' cache types and options](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#cache-types-sizes-and-statistics)**: `LRUCache`, `TTLCache`, ..., locks and hit/miss statistics.
+- **[Type checking](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md#type-checking)**: decorated functions keep their signatures for pyright, mypy and editors.
 
-`@cached_method` gives the class a `__copy__` and `__deepcopy__`, so `copy.copy(obj)` and `copy.deepcopy(obj)` work as usual for the other attributes, and each cached method's cache in the copy is set by its `on_copy` option:
+## Documentation
 
-- `"empty"` (default): the copy starts with an empty cache. Never stale, even if you then change the copy.
-- `"copy"`: the copy keeps the cached results (`copy.copy` shares the result objects with the original, `deepcopy` duplicates them). Stale if you then change the copy, until `clear_caches(copy)`.
-- `"manual"`: the class's own `__copy__` handles it.
-
-For a different choice for one copy, use `copy_instance(obj, caches="empty" | "copy", deep=False)`. It also makes a correct copy inside a class's own `__copy__` or `__deepcopy__`: if the class already defines one, it's kept, and you get a `CacheCopyWarning` unless the cached methods use `on_copy="manual"`. `dataclasses.replace` and `copy.replace` start with empty caches; pickling carries the caches along.
-
-## Type checking
-
-The decorators keep the decorated function's type, so type checkers and editors see its real signature and return type, and a subclass can override a cached method with a plain one, or a plain one with a cached one, as usual. The attributes cachetools adds (`cache_clear()`, `cache_info()`, `cache`, ...) aren't part of that type. They work at runtime, but in code checked with pyright or mypy, reach them through `cache_controls`:
-
-```python
-from mcrotk_cache_utils import cache_controls
-
-cache_controls(fit).cache_clear()
-cache_controls(model.fit).cache_info()  # with info=True
-```
-
-`clear_caches(obj)` also empties an instance's caches.
-
-## Caveats
-
-- Leaving an argument out of the key (`omit`, `passthrough`) is only right if it doesn't affect the result.
-- numpy arrays are hashed, and lists, dicts and sets converted, on every call, hit or miss: cheap next to most computations on them, but it reads all of each one. Object arrays and array subclasses (masked arrays, ...) aren't handled: use `key_converters`.
-- `[1, 2]` and `(1, 2)` share a cached result. If the result depends on which was passed, use `key_converters={"x": container_key}`.
-- Instance attributes aren't part of the key: after changing one that affects results, call `clear_caches(obj)`.
-- Cached objects are returned as stored, not copied.
-- Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).
-- Processes: a function's cache isn't shared between processes; worker processes start with empty caches. Pickling an instance carries its method caches along.
-
-Requires Python 3.11+ and cachetools 8+; the RNG decorators also need numpy (`pip install 'mcrotk-cache-utils[numpy]'`), and the pandas helpers need pandas 1.5+ (`[pandas]`).
+- **[User guide](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md)**: how each part works, with examples and caveats.
+- **[API reference](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/reference.md)**: every function and option.
