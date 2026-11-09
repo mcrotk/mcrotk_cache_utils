@@ -3,6 +3,7 @@
 Most tests decorate a fresh local function, since a function's cache lasts as long as the function.
 """
 
+import inspect
 import pickle
 import threading
 import time
@@ -11,7 +12,7 @@ from typing import NamedTuple
 import cachetools
 import pytest
 
-from mcrotk_cache_utils import cached_function
+from mcrotk_cache_utils import cache_controls, cached_function
 
 
 def test_repeated_call_runs_once():
@@ -39,7 +40,7 @@ def test_bound_arguments_give_one_key():
     f(x=1)
     f(y=2, x=1)
     assert runs == [(1, 2)]
-    assert f.cache == {(1, 2): 2}
+    assert cache_controls(f).cache == {(1, 2): 2}
 
 
 def test_omit_by_name_and_position_zero():
@@ -52,7 +53,7 @@ def test_omit_by_name_and_position_zero():
 
     f("a", 1)
     f("b", 1, verbose=True)
-    assert runs == ["a"] and f.cache == {(1,): 1}
+    assert runs == ["a"] and cache_controls(f).cache == {(1,): 1}
 
 
 def test_negative_position_and_out_of_range_message():
@@ -60,7 +61,7 @@ def test_negative_position_and_out_of_range_message():
     def f(x, verbose=False):
         return x
 
-    assert f.cache == {} and f(1, True) == 1 and f.cache == {(1,): 1}
+    assert cache_controls(f).cache == {} and f(1, True) == 1 and cache_controls(f).cache == {(1,): 1}
     with pytest.raises(ValueError, match=r"out of range for 2 parameters$"):  # no "positions count self"
         cached_function(omit=2)(lambda x, y: x)
 
@@ -94,7 +95,7 @@ def test_called_form_without_options():
     def f(x):
         return x
 
-    assert f(1) == 1 and f.cache == {(1,): 1}
+    assert f(1) == 1 and cache_controls(f).cache == {(1,): 1}
 
 
 def test_functools_attributes_kept():
@@ -103,7 +104,7 @@ def test_functools_attributes_kept():
         """Docstring."""
         return width * height
 
-    assert area.__name__ == "area" and area.__doc__ == "Docstring." and area.__wrapped__(2, 3) == 6
+    assert area.__name__ == "area" and area.__doc__ == "Docstring." and inspect.unwrap(area)(2, 3) == 6
 
 
 def test_cache_factory_info_and_clear():
@@ -113,11 +114,11 @@ def test_cache_factory_info_and_clear():
 
     for x in (1, 2, 3, 3):
         f(x)
-    info = f.cache_info()
+    info = cache_controls(f).cache_info()
     assert (info.hits, info.misses, info.maxsize, info.currsize) == (1, 3, 2, 2)
-    assert isinstance(f.cache, cachetools.LRUCache)
-    f.cache_clear()
-    info = f.cache_info()
+    assert isinstance(cache_controls(f).cache, cachetools.LRUCache)
+    cache_controls(f).cache_clear()
+    info = cache_controls(f).cache_info()
     assert (info.hits, info.misses, info.currsize) == (0, 0, 0)
 
 
@@ -132,8 +133,8 @@ def test_default_cache_is_a_new_unbounded_dict_per_function():
 
     for x in range(1000):
         f(x)
-    assert type(f.cache) is dict and len(f.cache) == 1000
-    assert g.cache == {}
+    assert type(cache_controls(f).cache) is dict and len(cache_controls(f).cache) == 1000
+    assert cache_controls(g).cache == {}
 
 
 class Pair(NamedTuple):
@@ -162,7 +163,7 @@ def test_passthrough_first_argument_by_position():
 
     assert f("a", 1) == (1, "a")
     assert f("b", 1) == (1, "b")
-    assert list(f.cache) == [(1,)]
+    assert list(cache_controls(f).cache) == [(1,)]
 
 
 def test_passthrough_info_through_view():
@@ -173,7 +174,7 @@ def test_passthrough_info_through_view():
     for x in (1, 2, 3):
         f(x, "a")
     assert f(3, "b") == (3, "b")
-    info = f.cache_info()
+    info = cache_controls(f).cache_info()
     assert (info.hits, info.misses, info.maxsize, info.currsize) == (1, 3, 2, 2)
 
 
@@ -207,7 +208,7 @@ class SubModel(Model):
 def model():
     Model.runs.clear()
     for f in (Model.kernel, Model.defaults, Model.shared):
-        f.cache_clear()
+        cache_controls(f).cache_clear()
     return Model
 
 
@@ -266,8 +267,8 @@ def test_lock_and_condition_objects():
         t.start()
     for t in threads:
         t.join(5)
-    assert sorted(locked.cache.items()) == [((0,), 0), ((1,), 1), ((2,), 2)]
-    assert locked.cache_lock is lock and conditioned.cache_condition is cond
+    assert sorted(cache_controls(locked).cache.items()) == [((0,), 0), ((1,), 1), ((2,), 2)]
+    assert cache_controls(locked).cache_lock is lock and cache_controls(conditioned).cache_condition is cond
 
 
 def test_condition_prevents_duplicate_computation():
@@ -318,5 +319,5 @@ def test_caveat_returned_objects_are_the_cached_objects():
     def items(n):
         return list(range(n))
 
-    items(3).append("changed")
-    assert items(3) == [0, 1, 2, "changed"]
+    items(3).append(99)
+    assert items(3) == [0, 1, 2, 99]

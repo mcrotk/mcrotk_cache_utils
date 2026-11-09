@@ -1,7 +1,7 @@
 """Caching decorators for functions, including static and class methods, with one cache per function."""
 
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import Any, TypeVar, overload
 
 import cachetools
 
@@ -9,7 +9,35 @@ from .cache_keys import ArgRef, ArgSpec, Passthrough
 from .passthrough_cache import make_view
 from .placement_checks import FunctionNotInClassBody, add_check, reject_static_or_class_method
 
+F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
 
+
+@overload
+def cached_function(
+    func: F,
+    /,
+    *,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> F: ...
+@overload
+def cached_function(
+    func: None = None,
+    /,
+    *,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> Callable[[F], F]: ...
 def cached_function(
     func: Callable[..., Any] | None = None,
     /,
@@ -30,15 +58,19 @@ def cached_function(
     rather than functions of ``self``.
 
     **The cache.** One per function, made by ``cache_factory`` when the decorator is applied,
-    and available as ``f.cache``. It lives as long as the function does, usually the whole
-    program, so with the default (an unbounded ``dict``) it keeps every result until
-    ``f.cache_clear()`` is called. Pass e.g. ``cache_factory=lambda: cachetools.LRUCache(maxsize=128)``
-    to bound it.
+    and available as ``cache_controls(f).cache``. It lives as long as the function does,
+    usually the whole program, so with the default (an unbounded ``dict``) it keeps every
+    result until ``cache_controls(f).cache_clear()`` is called. Pass e.g.
+    ``cache_factory=lambda: cachetools.LRUCache(maxsize=128)`` to bound it.
 
     **The key.** Built from the call's arguments bound to the signature with defaults filled
     in, so ``f(1)``, ``f(x=1)`` and ``f()`` with default ``x=1`` are the same call. Unhashable
     arrays and containers are converted as for :func:`cached_method`. Positions in the options
     count the parameters as in the ``def`` line, from 0.
+
+    **Types.** Type checkers see the decorated function's own type (its signature and return
+    type). The cache attributes cachetools adds (``f.cache_clear()``, ...) work, but aren't part
+    of that type: :func:`cache_controls` gives typed access to them.
 
     **Static and class methods.** Put ``@staticmethod`` or ``@classmethod`` above this decorator.
     For a class method, ``cls`` is part of the key, so subclasses get their own entries (in one
@@ -52,8 +84,8 @@ def cached_function(
             to use from several threads without a lock (at worst two threads compute the same
             result); cachetools' caches (``LRUCache`` etc.) are not, so pass e.g.
             ``lock=threading.Lock()`` with them. ``condition`` also stops two threads from
-            computing the same result. With ``info=True``, ``f.cache_info()`` gives hit and miss
-            counts.
+            computing the same result. With ``info=True``, ``cache_controls(f).cache_info()``
+            gives hit and miss counts.
 
     Caveats:
         - Results are returned as stored, not copied: changing a returned object in place

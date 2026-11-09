@@ -9,7 +9,7 @@ from typing import Any, NamedTuple
 import cachetools
 import pytest
 
-from mcrotk_cache_utils import cached_method, clear_caches
+from mcrotk_cache_utils import cache_controls, cached_method, clear_caches
 
 
 class Result(NamedTuple):
@@ -96,9 +96,9 @@ def test_clear_caches_with_passthrough_and_info():
     t = Tagged()
     t.bounded(1, "a")
     t.bounded(1, "b")
-    assert t.bounded.cache_info().hits == 1
+    assert cache_controls(t.bounded).cache_info().hits == 1
     clear_caches(t, "bounded")
-    info = t.bounded.cache_info()
+    info = cache_controls(t.bounded).cache_info()
     assert (info.hits, info.misses, info.currsize) == (0, 0, 0)
     assert t.bounded(1, "c") == (1, "c") and t.runs == [(1, "a"), (1, "c")]  # a miss again
 
@@ -108,7 +108,7 @@ def test_info_with_bounded_cache_through_view():
     for x in (1, 2, 3):
         t.bounded(x, "a")
     t.bounded(3, "b")
-    info = t.bounded.cache_info()
+    info = cache_controls(t.bounded).cache_info()
     assert (info.hits, info.misses, info.maxsize, info.currsize) == (1, 3, 2, 2)
 
 
@@ -145,20 +145,20 @@ def test_condition_with_passthrough():
 def test_reading_the_view_directly():
     t = Tagged()
     t.bounded(3, "a")
-    view = t.bounded.cache  # the view cachetools sees, not the real cache
+    view = cache_controls(t.bounded).cache  # the view cachetools sees, not the real cache
     assert list(view) == [(3,)] and (3,) in view and len(view) == 1
     stored = view[(3,)]  # outside a call: the internal stored form
     assert (stored.length, stored.values) == (2, (3,))
     assert view.maxsize == 2  # attributes of the real cache come through
     assert isinstance(t.__dict__["_Tagged_bounded_cache"], cachetools.LRUCache)
-    t.bounded.cache_clear()
+    cache_controls(t.bounded).cache_clear()
     assert len(t.__dict__["_Tagged_bounded_cache"]) == 0
 
 
 def test_view_over_plain_dict_reports_no_maxsize():
     t = Tagged()
     t.f(1, "a")
-    assert not isinstance(t.f.cache, cachetools.Cache)
+    assert not isinstance(cache_controls(t.f).cache, cachetools.Cache)
     assert t.__dict__["_Tagged_f_cache"].__class__ is dict
 
 
@@ -179,5 +179,5 @@ def test_view_over_cache_with_custom_getsizeof():
     c = C()
     c.f((1, 2, 3), "a")  # stored without t: 3 values
     c.f((4,), "a")  # 1 value
-    assert c.f.cache_info().currsize == 4
-    assert c.f.cache.getsizeof(c.f.cache[((1, 2, 3),)]) == 3
+    assert cache_controls(c.f).cache_info().currsize == 4
+    assert cache_controls(c.f).cache.getsizeof(cache_controls(c.f).cache[((1, 2, 3),)]) == 3

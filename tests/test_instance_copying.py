@@ -17,7 +17,14 @@ from typing import NamedTuple
 import cachetools
 import pytest
 
-from mcrotk_cache_utils import CacheCopyWarning, cached_method, clear_caches, copy_instance, rng_cached_method
+from mcrotk_cache_utils import (
+    CacheCopyWarning,
+    cache_controls,
+    cached_method,
+    clear_caches,
+    copy_instance,
+    rng_cached_method,
+)
 
 COPIERS = pytest.mark.parametrize("copier", [copy.copy, copy.deepcopy], ids=["copy", "deepcopy"])
 
@@ -32,7 +39,7 @@ class Base:
     scale: int = 2
 
     @cached_method
-    def g(self, x):
+    def g(self, x) -> tuple:
         return ("Base.g", id(self), self.scale * x)
 
 
@@ -53,7 +60,7 @@ class Sim(Base):
         return Pair(self.scale * x, t)
 
     @cached_method
-    def g(self, x):  # an override calling the parent's cached method
+    def g(self, x) -> tuple:  # an override calling the parent's cached method
         return ("Sim.g", id(self), super().g(x))
 
 
@@ -95,7 +102,7 @@ def test_copys_methods_run_on_the_copy_after_use(copier):
 
 def test_copy_after_only_accessing_a_method():
     o = Sim()
-    o.f.cache_info()  # creates cachetools' wrapper in o.__dict__ without calling f
+    cache_controls(o.f).cache_info()  # creates cachetools' wrapper in o.__dict__ without calling f
     c = copy.copy(o)
     c.scale = 10
     assert c.f(7) == (id(c), 70)
@@ -183,7 +190,7 @@ def test_info_counters_start_at_zero(copier):
     o.f(1)
     c = copier(o)
     assert (c.f.cache_info().hits, c.f.cache_info().misses) == (0, 0)
-    assert o.f.cache_info().hits == 1
+    assert cache_controls(o.f).cache_info().hits == 1
 
 
 # --- Copying cachetools caches for on_copy='copy' ---

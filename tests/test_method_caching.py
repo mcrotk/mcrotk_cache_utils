@@ -8,7 +8,7 @@ from typing import NamedTuple
 import cachetools
 import pytest
 
-from mcrotk_cache_utils import cached_method, clear_caches
+from mcrotk_cache_utils import cache_controls, cached_method, clear_caches
 
 
 class Calc:
@@ -220,9 +220,9 @@ def test_clear_caches_resets_info():
     c = C()
     c.f(1)
     c.f(1)
-    assert c.f.cache_info().hits == 1
+    assert cache_controls(c.f).cache_info().hits == 1
     clear_caches(c)
-    assert c.f.cache_info().hits == 0 and c.f.cache_info().currsize == 0
+    assert cache_controls(c.f).cache_info().hits == 0 and cache_controls(c.f).cache_info().currsize == 0
 
 
 def test_lock_and_condition_options():

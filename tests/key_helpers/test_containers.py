@@ -6,7 +6,7 @@ from functools import partial
 
 import pytest
 
-from mcrotk_cache_utils import array_key, cached_function, cached_method, container_key
+from mcrotk_cache_utils import array_key, cache_controls, cached_function, cached_method, container_key
 
 Point = namedtuple("Point", "x y")
 
@@ -289,7 +289,7 @@ def test_hashable_tuples_unchanged():
     f(t)
     f([1, [2, "a"]])
     assert len(calls) == 1
-    [key] = f.cache
+    [key] = cache_controls(f).cache
     assert key[0] is t
 
 

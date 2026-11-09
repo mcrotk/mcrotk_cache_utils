@@ -13,7 +13,7 @@ import sys
 import warnings
 import weakref
 from collections.abc import Iterator, MutableMapping
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, TypeVar
 
 import cachetools
 
@@ -159,13 +159,16 @@ setattr(_copy, _OURS, True)
 setattr(_deepcopy, _OURS, True)
 
 
+T = TypeVar("T")
+
+
 def copy_instance(
-    obj: Any,
+    obj: T,
     caches: Literal["empty", "copy"] | None = None,
     *,
     deep: bool = False,
     memo: dict[int, Any] | None = None,
-) -> Any:
+) -> T:
     """Copy an instance with cached methods, choosing what the copy gets in their caches.
 
     Makes the same copy as ``copy.copy(obj)`` (or ``copy.deepcopy(obj)`` with ``deep=True``)

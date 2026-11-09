@@ -9,7 +9,7 @@ import tempfile
 
 import pytest
 
-from mcrotk_cache_utils import array_key, cached_function, cached_method, rng_cached_method
+from mcrotk_cache_utils import array_key, cache_controls, cached_function, cached_method, rng_cached_method
 
 np = pytest.importorskip("numpy")
 
@@ -194,7 +194,7 @@ def test_function():
     total(np.arange(4), scale=1)
     total(np.arange(4).reshape(2, 2))
     assert len(calls) == 2
-    assert len(total.cache) == 2
+    assert len(cache_controls(total).cache) == 2
 
 
 @pytest.mark.parametrize(

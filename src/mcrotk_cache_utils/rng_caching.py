@@ -1,13 +1,48 @@
 """Caching decorators for methods and functions that take and return a numpy random number generator."""
 
-from collections.abc import Callable, Mapping
-from typing import Any
+from collections.abc import Callable, Iterable, Mapping, MutableMapping
+from typing import Any, TypeVar, overload
 
 from .cache_keys import ArgRef, Passthrough
 from .function_caching import cached_function
+from .instance_copying import OnCopy
 from .method_caching import cached_method
 
+F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
 
+
+@overload
+def rng_cached_method(
+    func: F,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    rng_output: int = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> F: ...
+@overload
+def rng_cached_method(
+    func: None = None,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    rng_output: int = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> Callable[[F], F]: ...
 def rng_cached_method(
     func: Callable[..., Any] | None = None,
     /,
@@ -48,6 +83,36 @@ def rng_cached_method(
     return cached_method(func, passthrough=combined, **kwargs)
 
 
+@overload
+def rng_cached_function(
+    func: F,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    rng_output: int = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> F: ...
+@overload
+def rng_cached_function(
+    func: None = None,
+    /,
+    *,
+    rng_arg: ArgRef = ...,
+    rng_output: int = ...,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Any = ...,
+    condition: Any = ...,
+    info: bool = ...,
+) -> Callable[[F], F]: ...
 def rng_cached_function(
     func: Callable[..., Any] | None = None,
     /,

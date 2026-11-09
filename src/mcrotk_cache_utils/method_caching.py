@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
-from typing import Any
+from typing import Any, TypeVar, overload
 
 import cachetools
 
@@ -23,6 +23,37 @@ class _DescriptorChecks(MethodInClassBody, InstallsCopyMethods):
     """What we add to cachetools' method descriptor: the placement error and copy handling."""
 
 
+F = TypeVar("F", bound=Callable[..., Any])  # the decorated function: its type is kept as it is
+
+
+@overload
+def cached_method(
+    func: F,
+    /,
+    *,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> F: ...
+@overload
+def cached_method(
+    func: None = None,
+    /,
+    *,
+    cache_factory: Callable[[], MutableMapping] = ...,
+    omit: ArgRef | Iterable[ArgRef] = ...,
+    passthrough: Mapping[ArgRef, int | Passthrough] | None = ...,
+    key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = ...,
+    lock: Callable[[Any], Any] | None = ...,
+    condition: Callable[[Any], Any] | None = ...,
+    info: bool = ...,
+    on_copy: OnCopy | None = ...,
+) -> Callable[[F], F]: ...
 def cached_method(
     func: Callable[..., Any] | None = None,
     /,
@@ -54,6 +85,11 @@ def cached_method(
     in, so ``f(1)``, ``f(x=1)`` and ``f()`` with default ``x=1`` are the same call. ``self`` is
     always left out. Instance attributes are not part of the key: if you change an attribute
     that affects results, call :func:`clear_caches`.
+
+    **Types.** Type checkers see the method's own type, so calls are checked against its
+    signature and overriding works as usual (cached or not, in either class). The cache
+    attributes cachetools adds (``obj.method.cache_info()``, ...) work, but aren't part of that
+    type: :func:`cache_controls` gives typed access to them.
 
     **Unhashable arguments** (also among ``*args`` and ``**kwargs``) are converted:
 
@@ -92,7 +128,8 @@ def cached_method(
             :func:`dataframe_key`, :func:`series_key` and :func:`index_key`.
         lock, condition, info: Passed to :func:`cachetools.cachedmethod` (``lock`` and
             ``condition`` are functions of ``self`` returning the instance's lock/condition).
-            With ``info=True``, ``obj.method.cache_info()`` gives hit and miss counts.
+            With ``info=True``, ``cache_controls(obj.method).cache_info()`` gives hit and
+            miss counts.
         on_copy: What a copy of the instance (``copy.copy`` or ``copy.deepcopy``) gets in
             this method's cache: ``'empty'`` (the default: never stale, even if the copy is
             then changed), ``'copy'`` (the cached results: shared with the original by

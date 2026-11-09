@@ -1,6 +1,6 @@
 import pytest
 
-from mcrotk_cache_utils import rng_cached_function, rng_cached_method
+from mcrotk_cache_utils import cache_controls, rng_cached_function, rng_cached_method
 
 np = pytest.importorskip("numpy")
 
@@ -148,7 +148,7 @@ def test_info_with_rng_passthrough():
     c = C()
     c.f(2, rng=1)
     c.f(2, rng=2)
-    info = c.f.cache_info()
+    info = cache_controls(c.f).cache_info()
     assert (info.hits, info.misses, info.currsize) == (1, 1, 1)
 
 
@@ -193,7 +193,7 @@ def test_function_rng_not_stored_and_positional_rng():
     g = np.random.default_rng(2)
     _, r = draw(3, g)
     assert r is g and runs == [3]
-    ((key, stored),) = draw.cache.items()
+    ((key, stored),) = cache_controls(draw).cache.items()
     assert key == (3,) and not any(isinstance(v, np.random.Generator) for v in stored.values)
 
 
@@ -230,4 +230,4 @@ def test_rng_static_and_class_methods():
     g = np.random.default_rng(5)
     b, r = S().scaled(3, rng=g)
     assert a == b and r is g and S.runs == 1
-    assert S.scaled.cache_info().hits == 1
+    assert cache_controls(S.scaled).cache_info().hits == 1

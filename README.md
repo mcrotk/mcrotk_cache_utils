@@ -92,7 +92,7 @@ Use the pandas helpers sparingly. Keying a pandas object by its contents reads a
 ```python
 import numpy as np
 
-from mcrotk_cache_utils import cached_function, rng_cached_function
+from mcrotk_cache_utils import cache_controls, cached_function, rng_cached_function
 
 
 @cached_function
@@ -116,7 +116,7 @@ class Model:
     def defaults(cls, n): ...  # cls is in the key: subclasses get their own entries
 
 
-fit.cache_clear()
+cache_controls(fit).cache_clear()  # or fit.cache_clear(), which type checkers don't know about
 ```
 
 The options are the same as for methods. A function has one cache, which lives as long as the program: the default is unbounded, so pass e.g. `cache_factory=lambda: cachetools.LRUCache(maxsize=128)` to bound it. Using `cached_function` directly on an ordinary method is an error (its cache would be shared by all instances); use `cached_method`.
@@ -130,6 +130,19 @@ The options are the same as for methods. A function has one cache, which lives a
 - `"manual"`: the class's own `__copy__` handles it.
 
 For a different choice for one copy, use `copy_instance(obj, caches="empty" | "copy", deep=False)`. It also makes a correct copy inside a class's own `__copy__` or `__deepcopy__`: if the class already defines one, it's kept, and you get a `CacheCopyWarning` unless the cached methods use `on_copy="manual"`. `dataclasses.replace` and `copy.replace` start with empty caches; pickling carries the caches along.
+
+## Type checking
+
+The decorators keep the decorated function's type, so type checkers and editors see its real signature and return type, and a subclass can override a cached method with a plain one, or a plain one with a cached one, as usual. The attributes cachetools adds (`cache_clear()`, `cache_info()`, `cache`, ...) aren't part of that type. They work at runtime, but in code checked with pyright or mypy, reach them through `cache_controls`:
+
+```python
+from mcrotk_cache_utils import cache_controls
+
+cache_controls(fit).cache_clear()
+cache_controls(model.fit).cache_info()  # with info=True
+```
+
+`clear_caches(obj)` also empties an instance's caches.
 
 ## Caveats
 
