@@ -6,8 +6,8 @@ from typing import Any
 
 import cachetools
 
-from ._spec import ArgRef, ArgSpec, Passthrough
-from ._view import make_view
+from .cache_keys import ArgRef, ArgSpec, Passthrough
+from .passthrough_cache import make_view
 
 _MARKER = "_mcrotk_cache_attr"  # set on our descriptors: the name of the instance attribute holding the cache
 

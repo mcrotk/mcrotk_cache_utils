@@ -5,7 +5,7 @@ from typing import Any, NamedTuple
 
 import cachetools
 
-from ._spec import PassthroughKey
+from .cache_keys import PassthroughKey
 
 
 class Stored(NamedTuple):

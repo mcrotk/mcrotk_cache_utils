@@ -3,8 +3,8 @@
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from ._spec import ArgRef, Passthrough
-from .method import cached_method
+from .cache_keys import ArgRef, Passthrough
+from .method_caching import cached_method
 
 
 def rng_cached_method(
