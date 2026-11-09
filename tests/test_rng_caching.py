@@ -1,6 +1,15 @@
+import copy
+
+import cachetools
 import pytest
 
-from mcrotk_cache_utils import cache_controls, rng_passthrough_cached_function, rng_passthrough_cached_method
+from mcrotk_cache_utils import (
+    cache_controls,
+    rng_omit_cached_function,
+    rng_omit_cached_method,
+    rng_passthrough_cached_function,
+    rng_passthrough_cached_method,
+)
 
 np = pytest.importorskip("numpy")
 
@@ -231,3 +240,135 @@ def test_rng_static_and_class_methods():
     b, r = S().scaled(3, rng=g)
     assert a == b and r is g and S.runs == 1
     assert cache_controls(S.scaled).cache_info().hits == 1
+
+
+# --- rng_omit_cached_method / rng_omit_cached_function: generators advanced in place, not returned ---
+
+
+def state(rng):
+    return rng.bit_generator.state
+
+
+class OmitSim:
+    def __init__(self):
+        self.runs = 0
+
+    @rng_omit_cached_method
+    def draw(self, n, rng=None):
+        self.runs += 1
+        rng = np.random.default_rng(rng)
+        return rng.random(n).sum()
+
+    @rng_omit_cached_method(rng_arg="gen", omit="verbose", info=True)
+    def named(self, n, gen=None, verbose=False):
+        self.runs += 1
+        return np.random.default_rng(gen).random(n).sum()
+
+    @rng_omit_cached_method(rng_arg=2)
+    def positional(self, n, rng):
+        self.runs += 1
+        return np.random.default_rng(rng).random(n).sum()
+
+    @rng_omit_cached_method(cache_factory=lambda: cachetools.LRUCache(maxsize=1), on_copy="copy")
+    def small(self, n, rng=None):
+        self.runs += 1
+        return np.random.default_rng(rng).random(n).sum()
+
+
+def test_omit_miss_advances_callers_generator_in_place():
+    sim, rng = OmitSim(), np.random.default_rng(0)
+    value = sim.draw(3, rng=rng)
+    reference = np.random.default_rng(0)
+    assert value == reference.random(3).sum()
+    assert state(rng) == state(reference)  # the caller's generator advanced, as without caching
+
+
+def test_omit_hit_leaves_generator_unchanged_and_reuses_the_draws():
+    sim = OmitSim()
+    first = sim.draw(3, rng=np.random.default_rng(0))
+    rng = np.random.default_rng(1)
+    before = state(rng)
+    assert sim.draw(3, rng=rng) == first  # the first call's draws
+    assert state(rng) == before and sim.runs == 1
+
+
+@pytest.mark.parametrize("kind", ["generator", "seed", "none"])
+def test_omit_calls_differing_only_in_rng_share_a_result(kind):
+    sim = OmitSim()
+    first = sim.draw(3, rng=np.random.default_rng(0))
+    rng = {"generator": np.random.default_rng(5), "seed": 5, "none": None}[kind]
+    assert sim.draw(3, rng=rng) == first and sim.runs == 1
+    sim.draw(4, rng=rng)
+    assert sim.runs == 2  # other arguments still count
+
+
+def test_omit_rng_arg_and_other_options():
+    sim = OmitSim()
+    sim.named(3, gen=1)
+    sim.named(3, gen=2, verbose=True)  # gen and verbose both left out
+    assert sim.runs == 1 and cache_controls(sim.named).cache_info().hits == 1
+    sim.positional(3, 1)
+    sim.positional(3, np.random.default_rng(2))
+    assert sim.runs == 2
+
+
+def test_omit_cache_factory_and_on_copy_pass_through():
+    sim = OmitSim()
+    sim.small(1, rng=0)
+    sim.small(2, rng=0)  # maxsize=1: the first entry is evicted
+    sim.small(1, rng=0)
+    assert sim.runs == 3
+    copied = copy.copy(sim)
+    copied.small(1, rng=9)
+    assert copied.runs == 3  # on_copy="copy": the copy kept the cached result
+
+
+def test_omit_rng_also_in_omit_is_fine():
+    @rng_omit_cached_function(omit=["rng", "verbose"])
+    def f(n, rng=None, verbose=False):
+        return n
+
+    assert f(1, rng=1, verbose=True) == 1
+
+
+def test_omit_errors():
+    with pytest.raises(ValueError, match="not a parameter"):
+        rng_omit_cached_function(lambda n: n)
+    with pytest.raises(ValueError, match="both omit and passthrough"):
+        rng_omit_cached_function(passthrough={"rng": -1})(lambda n, rng=None: (n, rng))
+
+
+def test_omit_function():
+    runs = []
+
+    @rng_omit_cached_function
+    def draw(n, rng=None):
+        runs.append(n)
+        return np.random.default_rng(rng).random(n).sum()
+
+    rng = np.random.default_rng(0)
+    first = draw(3, rng=rng)
+    assert state(rng) != state(np.random.default_rng(0))  # advanced in place
+    before = state(rng)
+    assert draw(3, rng=rng) == first and draw(3, rng=7) == first and draw(3) == first
+    assert state(rng) == before and runs == [3]
+
+
+def test_omit_static_and_class_methods():
+    class S:
+        runs = 0
+
+        @staticmethod
+        @rng_omit_cached_function
+        def draw(n, rng=None):
+            S.runs += 1
+            return np.random.default_rng(rng).random(n).sum()
+
+        @classmethod
+        @rng_omit_cached_function
+        def scaled(cls, n, rng=None):
+            return 2 * cls.draw(n, rng=rng)
+
+    a = S.scaled(3, rng=1)
+    b = S().scaled(3, rng=np.random.default_rng(5))
+    assert a == b and S.runs == 1

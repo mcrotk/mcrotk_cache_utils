@@ -60,6 +60,26 @@ def test_core_works_without_numpy_and_pandas():
         g((1, {"a": frozenset({2})}), (3,), y={"b": (4,)})
         assert len(calls) == 2
         assert container_key({"a": [1]}) == container_key({"a": [1]}) != container_key({"a": (1,)})
+
+        from mcrotk_cache_utils import rng_omit_cached_function, rng_omit_cached_method
+
+        draws = []
+
+        @rng_omit_cached_function  # no numpy needed: the generator is only left out of the key
+        def sample(n, rng=None):
+            draws.append(n)
+            return n
+
+        sample(1, rng=object())
+        sample(1, rng=object())
+        assert draws == [1]
+
+        class D:
+            @rng_omit_cached_method
+            def sample(self, n, rng=None):
+                return n
+
+        assert D().sample(2, rng=None) == 2
         print("ok")
     """)
     assert output == "ok"

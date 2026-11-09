@@ -22,6 +22,8 @@ from mcrotk_cache_utils import (
     cached_method,
     clear_caches,
     copy_instance,
+    rng_omit_cached_function,
+    rng_omit_cached_method,
     rng_passthrough_cached_function,
     rng_passthrough_cached_method,
 )
@@ -55,6 +57,16 @@ def double(x: int | str) -> int | str:
     return x * 2
 
 
+@rng_omit_cached_function
+def sample(n: int, rng: Any = None) -> float:
+    return float(n)
+
+
+@rng_omit_cached_function(rng_arg="gen", info=True)
+def sample_gen(n: int, gen: Any = None) -> list[int]:
+    return [n]
+
+
 class Model:
     def __init__(self, scale: float = 1.0) -> None:
         self.scale = scale
@@ -69,6 +81,10 @@ class Model:
 
     def plain(self, n: int) -> int:
         return n
+
+    @rng_omit_cached_method
+    def sampled(self, n: int, rng: Any = None) -> float:
+        return float(n)
 
     @staticmethod
     @cached_function
@@ -128,6 +144,13 @@ def test_methods():
     assert_type(Model.fit(m, 2), list[float])
     assert_type(m.label("a"), str)
     assert m.fit(2, scale=3.0) == [6.0, 6.0] and m.label("a") == "A"
+
+
+def test_rng_omit_decorators():
+    assert_type(sample(2, rng=1), float)
+    assert_type(sample_gen(2), list[int])
+    assert_type(Model().sampled(2), float)
+    assert sample(2) == 2.0 and sample_gen(2, gen=5) == [2] and Model().sampled(2, rng=3) == 2.0
 
 
 def test_static_and_class_methods():
@@ -203,6 +226,8 @@ if TYPE_CHECKING:
     Model.defaults("two")  # type: ignore
     Model().label(1)  # type: ignore
     double(2.5)  # type: ignore
+    sample("two")  # type: ignore
+    Model().sampled(2, generator=1)  # type: ignore
     cache_controls(area).cache_clear(1)  # type: ignore
     size = cache_controls(area).cache_size  # type: ignore
     # The documented limitation: the cache attributes aren't part of the decorated function's type.
