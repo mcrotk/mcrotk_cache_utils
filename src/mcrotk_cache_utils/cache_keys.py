@@ -7,11 +7,13 @@ from typing import Any
 import cachetools.keys
 
 from .key_helpers.arrays import array_key, is_array
+from .key_helpers.containers import container_key
 
 ArgRef = str | int  # an argument, by name or by position in the def line (counting self or cls)
 Passthrough = tuple[int, Callable[[Any], Any] | None]  # (output position, transform)
 
 _VAR_KINDS = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+_CONTAINERS = (list, tuple, dict, set, frozenset)  # converted automatically when unhashable
 
 
 class PassthroughKey(tuple):
@@ -110,15 +112,20 @@ class ArgSpec:
         return self._value_key(name, value)
 
     def _value_key(self, name: str, value: Any) -> Any:
-        """A value as it goes in the key: numpy arrays by their contents, anything else as it is."""
-        if not is_array(value):
-            return value
+        """A value as it goes in the key: numpy arrays by their contents, unhashable containers converted
+        (by ``container_key`` without type tags), anything else as it is."""
         try:
-            return array_key(value)
+            if is_array(value):
+                return array_key(value)
+            if isinstance(value, _CONTAINERS) and not _is_hashable(value):
+                converted = container_key(value, type_tags=False)
+                hash(converted)  # something unhashable inside: report it here, naming the argument
+                return converted
         except TypeError as e:
             raise TypeError(
                 f"{self.qualname}: can't use argument {name!r} in the cache key: {e}. {_advice(name)}"
             ) from None
+        return value
 
     def _raise_unhashable(self, parts: list[Any]) -> None:
         for name, part in zip(self.key_names, parts, strict=True):
@@ -201,6 +208,14 @@ class ArgSpec:
                 raise TypeError(f"{self.qualname}: key converter for {name!r} must be callable")
             resolved[name] = converter
         return resolved
+
+
+def _is_hashable(value: Any) -> bool:
+    try:
+        hash(value)
+    except TypeError:
+        return False
+    return True
 
 
 def _advice(name: str) -> str:

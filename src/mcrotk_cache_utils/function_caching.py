@@ -36,8 +36,8 @@ def cached_function(
     to bound it.
 
     **The key.** Built from the call's arguments bound to the signature with defaults filled
-    in, so ``f(1)``, ``f(x=1)`` and ``f()`` with default ``x=1`` are the same call. numpy arrays
-    go in the key by their contents, as for :func:`cached_method`. Positions in the options
+    in, so ``f(1)``, ``f(x=1)`` and ``f()`` with default ``x=1`` are the same call. Unhashable
+    arrays and containers are converted as for :func:`cached_method`. Positions in the options
     count the parameters as in the ``def`` line, from 0.
 
     **Static and class methods.** Put ``@staticmethod`` or ``@classmethod`` above this decorator.

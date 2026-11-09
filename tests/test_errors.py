@@ -9,6 +9,10 @@ from mcrotk_cache_utils import cached_function, cached_method, rng_cached_functi
 needs_numpy = pytest.mark.skipif(importlib.util.find_spec("numpy") is None, reason="needs numpy")
 
 
+class Unhashable:
+    __hash__ = None  # pyright: ignore[reportAssignmentType]
+
+
 def decorate(**options):
     def f(self, a, b=1, *args, rng=None, **kwargs):
         return a, rng
@@ -90,9 +94,9 @@ class C:
 
 def test_unhashable_argument_message():
     with pytest.raises(TypeError) as e:
-        C().f([1, 2])
+        C().f(Unhashable())
     msg = str(e.value)
-    assert "argument 'arr'" in msg and "list is unhashable" in msg
+    assert "argument 'arr'" in msg and "Unhashable is unhashable" in msg
     assert "key_converters={'arr': ...}" in msg and "omit=['arr']" in msg
 
 
@@ -132,10 +136,10 @@ def test_unhashable_argument_in_passthrough_method():
     class P:
         @cached_method(passthrough={"t": -1})
         def f(self, arr, t):
-            return sum(arr), t
+            return arr, t
 
-    with pytest.raises(TypeError, match="argument 'arr'.*list is unhashable"):
-        P().f([1, 2], "t")
+    with pytest.raises(TypeError, match="argument 'arr'.*Unhashable is unhashable"):
+        P().f(Unhashable(), "t")
 
 
 def decorate_function(**options):
@@ -174,7 +178,7 @@ def takes_array(arr):
 
 def test_function_unhashable_argument_message():
     with pytest.raises(TypeError) as e:
-        takes_array([1, 2])
+        takes_array(Unhashable())
     msg = str(e.value)
     assert msg.startswith("takes_array: can't use argument 'arr'") and "key_converters={'arr': ...}" in msg
 

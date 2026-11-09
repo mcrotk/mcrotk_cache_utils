@@ -5,8 +5,8 @@ Caching decorators for methods and functions, built on [cachetools](https://gith
 - **For methods, a separate cache per instance**, created on first use: no cache field to declare, nothing added to `==` or `repr`, and it works on frozen dataclasses.
 - **A key built from the bound arguments**: `f(1)`, `f(x=1)` and `f()` with default `x=1` are the same call; a method's `self` is left out.
 - **`omit=`**: leave arguments that don't affect the result out of the key.
-- **numpy arrays as arguments**: keyed by their contents (shape, dtype and a hash of the data), so equal arrays share a result and an array changed in place doesn't get a stale one.
-- **`key_converters=`**: make other unhashable arguments usable in the key, with ready-made converters for lists, dicts and sets (`container_key`) and, where nothing simpler will do, pandas objects (`dataframe_key`, `series_key`, `index_key`).
+- **Unhashable arguments handled**: numpy arrays are keyed by their contents (shape, dtype and a hash of the data), so equal arrays share a result and an array changed in place doesn't get a stale one; lists, dicts and sets are converted to hashable equivalents.
+- **`key_converters=`**: make other arguments usable in the key, with ready-made converters such as `container_key` and, where nothing simpler will do, pandas objects (`dataframe_key`, `series_key`, `index_key`).
 - **`passthrough=`**: for methods that take an argument and return it, e.g. a random number generator. On a cache hit, the caller's current argument is returned in its place, not the one from when the result was cached.
 - **Safe copying**: `copy.copy` and `copy.deepcopy` give copies whose cached methods run on the copy, with caches emptied or copied as you choose (`on_copy=`).
 - All of cachetools' cache types (`LRUCache`, `TTLCache`, ...) and its `lock`, `condition` and `info` options.
@@ -44,8 +44,8 @@ from mcrotk_cache_utils import cached_method, clear_caches
 
 
 class Model:
-    @cached_method(omit="verbose", key_converters={"weights": tuple})
-    def fit(self, data_id, weights, verbose=False): ...
+    @cached_method(omit="verbose", key_converters={"estimator": lambda e: e.name})
+    def fit(self, data_id, estimator, verbose=False): ...
 
     @cached_method(passthrough={"state": (-1, normalize_state)})
     def step(self, x, state):
@@ -61,23 +61,26 @@ Positions can be used instead of names, counting the parameters as in the `def` 
 
 ## Unhashable arguments
 
-Cache keys must be hashable. numpy arrays are handled automatically. For other unhashable arguments, give a converter:
+Cache keys must be hashable. Two kinds of unhashable arguments are converted automatically (also inside `*args` and `**kwargs`):
+
+- **numpy arrays**, by their contents: shape, dtype and a hash of the data (`array_key`).
+- **lists, dicts and sets**, and tuples and frozensets containing them, by `container_key(value, type_tags=False)`: lists become tuples, sets become frozensets and dicts become frozensets of their `(key, value)` pairs, recursively. So `f([1, 2])` and `f((1, 2))` share a result.
+
+For anything else, or to change how an argument is keyed, give a converter:
 
 ```python
-from functools import partial
-
 from mcrotk_cache_utils import cached_method, container_key, dataframe_key
 
 
 class Model:
-    @cached_method(key_converters={"weights": container_key, "data": dataframe_key})
-    def fit(self, data, weights): ...
+    @cached_method(key_converters={"shape": container_key})
+    def reshaped(self, shape): ...  # [2, 3] and (2, 3) get separate entries
 
-    @cached_method(key_converters={"spec": partial(container_key, type_tags=False)})
-    def summarize(self, spec): ...
+    @cached_method(key_converters={"data": dataframe_key})
+    def fit(self, data): ...
 ```
 
-- `container_key(value, type_tags=True)`: lists and tuples become tuples, sets become frozensets and dicts become frozensets of their `(key, value)` pairs, recursively (arrays inside are keyed by content). With `type_tags=True` each container's exact type is kept, so `[2, 3]` and `(2, 3)` get separate entries; with `False` they share one.
+- `container_key(value, type_tags=True)`: as above, but by default each container's exact type is kept, so `[2, 3]` and `(2, 3)` get separate entries, as do a NamedTuple and a plain tuple. Use it when the result depends on which was passed, e.g. when it has the same type as the argument.
 - `array_key(arr)`: what's applied to arrays automatically, for use in your own converters.
 - `dataframe_key(df, index=True)`: the column labels, dtypes and a hash of each column's values (pandas' `hash_pandas_object`), plus the index's values, dtypes and names. Use `index=False` only if the result doesn't depend on the index: a result that carries the index (e.g. `df["x"] * 2`) would come back with the old index for a DataFrame with the same values under different labels.
 - `series_key(s, name=True, index=True)` and `index_key(idx)`: the same for a Series (with its name) and an Index or MultiIndex.
@@ -92,8 +95,8 @@ import numpy as np
 from mcrotk_cache_utils import cached_function, rng_cached_function
 
 
-@cached_function(key_converters={"weights": tuple})
-def fit(data_id, weights): ...
+@cached_function
+def fit(data_id, weights): ...  # weights can be a list
 
 
 @rng_cached_function
@@ -131,7 +134,8 @@ For a different choice for one copy, use `copy_instance(obj, caches="empty" | "c
 ## Caveats
 
 - Leaving an argument out of the key (`omit`, `passthrough`) is only right if it doesn't affect the result.
-- numpy arrays are hashed on every call, hit or miss: cheap next to most computations on them, but it reads the whole array. Object arrays and array subclasses (masked arrays, ...) aren't handled: use `key_converters`.
+- numpy arrays are hashed, and lists, dicts and sets converted, on every call, hit or miss: cheap next to most computations on them, but it reads all of each one. Object arrays and array subclasses (masked arrays, ...) aren't handled: use `key_converters`.
+- `[1, 2]` and `(1, 2)` share a cached result. If the result depends on which was passed, use `key_converters={"x": container_key}`.
 - Instance attributes aren't part of the key: after changing one that affects results, call `clear_caches(obj)`.
 - Cached objects are returned as stored, not copied.
 - Threads: the default `dict` cache is safe to use from several threads. cachetools' caches (`LRUCache`, ...) aren't: with them, also pass `lock=` (and `condition=` to stop two threads from computing the same result).

@@ -55,10 +55,19 @@ def cached_method(
     always left out. Instance attributes are not part of the key: if you change an attribute
     that affects results, call :func:`clear_caches`.
 
-    **numpy arrays** (``ndarray`` and ``memmap``, also among ``*args`` and ``**kwargs``) go in
-    the key by their contents: shape, dtype and a hash of the data, computed on every call. So
-    equal arrays share a result, and an array changed in place gets a new key. Object arrays
-    and other array types (masked arrays, ...) need ``key_converters``.
+    **Unhashable arguments** (also among ``*args`` and ``**kwargs``) are converted:
+
+    - numpy arrays (``ndarray`` and ``memmap``) by their contents: shape, dtype and a hash of
+      the data, computed on every call. So equal arrays share a result, and an array changed in
+      place gets a new key. Object arrays and other array types (masked arrays, ...) need
+      ``key_converters``.
+    - lists, dicts and sets, and tuples and frozensets containing them, by
+      :func:`container_key` with ``type_tags=False``: lists become tuples, sets frozensets and
+      dicts frozensets of their ``(key, value)`` pairs, recursively. So ``[1, 2]`` and
+      ``(1, 2)`` share a result. If the result depends on which was passed (e.g. it has the
+      same type), keep the types with ``key_converters={'x': container_key}``.
+
+    Anything else unhashable (including pandas objects) needs ``key_converters`` or ``omit``.
 
     Args:
         cache_factory: Makes each instance's cache. Default ``dict`` (unbounded). Any
@@ -75,8 +84,9 @@ def cached_method(
             ``output_position``. The method must return a tuple; NamedTuples are rebuilt as the
             same type.
         key_converters: ``{argument: function}``: the function's result is used in the key in
-            place of the argument's value, e.g. to make an unhashable argument hashable
-            (``{'items': tuple}`` for a list). It replaces the automatic handling of arrays.
+            place of the argument's value, e.g. to make an unhashable argument hashable, or to
+            key an argument by part of it (``{'model': lambda m: m.name}``). It replaces the
+            automatic handling of arrays and containers.
             Ready-made converters: :func:`container_key` (lists, dicts, sets, nested),
             :func:`array_key`, and for pandas objects (only when nothing simpler will do)
             :func:`dataframe_key`, :func:`series_key` and :func:`index_key`.
