@@ -8,6 +8,7 @@ import cachetools
 
 from .cache_keys import ArgRef, ArgSpec, Passthrough
 from .passthrough_cache import make_view
+from .placement_checks import MethodInClassBody, add_check, reject_static_or_class_method
 
 _MARKER = "_mcrotk_cache_attr"  # set on our descriptors: the name of the instance attribute holding the cache
 
@@ -28,6 +29,8 @@ def cached_method(
 
     Use as ``@cached_method`` or ``@cached_method(...)``. Built on
     :func:`cachetools.cachedmethod`, which does the calling, binding, locking and statistics.
+    For ordinary methods only: for functions, static methods and class methods use
+    :func:`cached_function` (using this decorator on them is an error).
 
     **The cache.** Created on an instance's first call and stored in its ``__dict__`` as
     ``_<Class>_<method>_cache`` (``<Class>`` is the class the method is defined in, so a
@@ -80,6 +83,11 @@ def cached_method(
     """
 
     def decorate(func: Callable[..., Any]) -> Any:
+        reject_static_or_class_method(
+            func,
+            "cached_method",
+            "For a static or class method, use @cached_function under @staticmethod/@classmethod.",
+        )
         spec = ArgSpec(func, has_self=True, omit=omit, passthrough=passthrough, key_converters=key_converters)
         attr = _cache_attr_name(func)
 
@@ -100,6 +108,7 @@ def cached_method(
         descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(
             func
         )
+        add_check(descriptor, MethodInClassBody)
         setattr(descriptor, _MARKER, attr)
         return descriptor
 

@@ -35,6 +35,23 @@ class FunctionNotInClassBody:
         )
 
 
+class MethodInClassBody:
+    """Mixin for ``cached_method``'s descriptor: an error if it's called directly.
+
+    cachetools' method descriptor is only called directly when it never became a method:
+    under ``@staticmethod`` or ``@classmethod`` (which don't call ``__set_name__``), or on a
+    function outside a class. cachetools' own error there only mentions class methods.
+    """
+
+    def __call__(self, /, *args: Any, **kwargs: Any) -> Any:
+        qualname = getattr(self, "__qualname__", "cached method")
+        raise TypeError(
+            f"{qualname}: @cached_method only works on ordinary methods defined in a class body "
+            "(it keeps a cache per instance). For a function, a static method or a class method, "
+            "use @cached_function, with @staticmethod/@classmethod above it."
+        )
+
+
 def reject_static_or_class_method(func: Any, decorator: str, advice: str) -> None:
     """Error for ``@decorator`` placed above ``@staticmethod``/``@classmethod`` (it receives their object)."""
     if isinstance(func, (staticmethod, classmethod)):
