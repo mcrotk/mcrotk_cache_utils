@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from mcrotk_cache_utils import cached_method, rng_cached_method
+from mcrotk_cache_utils import cached_function, cached_method, rng_cached_function, rng_cached_method
 
 
 def decorate(**options):
@@ -132,3 +132,58 @@ def test_unhashable_argument_in_passthrough_method():
 
     with pytest.raises(TypeError, match="argument 'arr'.*ndarray is unhashable"):
         P().f(np.zeros(2), "t")
+
+
+def decorate_function(**options):
+    def f(a, b=1, *args, rng=None, **kwargs):
+        return a, rng
+
+    return cached_function(**options)(f)
+
+
+@pytest.mark.parametrize(
+    "options, error, match",
+    [
+        ({"omit": "nope"}, ValueError, "not a parameter"),
+        ({"omit": 5}, ValueError, "out of range for 5 parameters$"),
+        ({"passthrough": {"rng": -1}, "omit": "rng"}, ValueError, "both omit and passthrough"),
+        ({"passthrough": {"args": 0}}, ValueError, r"\*args"),
+        ({"passthrough": {"rng": (-1, "x")}}, TypeError, "must be callable"),
+        ({"key_converters": {"a": tuple}, "omit": 0}, ValueError, "not in the key"),
+    ],
+)
+def test_function_bad_options_fail_at_decoration(options, error, match):
+    with pytest.raises(error, match=match):
+        decorate_function(**options)
+
+
+def test_function_options_can_refer_to_first_parameter():
+    decorate_function(omit=0)
+    decorate_function(omit="a")
+    decorate_function(passthrough={0: 0})
+
+
+@cached_function
+def takes_array(arr):
+    return 1
+
+
+def test_function_unhashable_argument_message():
+    with pytest.raises(TypeError) as e:
+        takes_array(np.zeros(3))
+    msg = str(e.value)
+    assert msg.startswith("takes_array: can't use argument 'arr'") and "key_converters={'arr': ...}" in msg
+
+
+def test_function_return_value_must_be_tuple():
+    @cached_function(passthrough={"t": -1})
+    def f(x, t):
+        return x
+
+    with pytest.raises(TypeError, match="must return a tuple"):
+        f(1, "t")
+
+
+def test_rng_function_arg_also_in_passthrough():
+    with pytest.raises(ValueError, match="rng_cached_function: 'rng' is set by rng_arg"):
+        rng_cached_function(passthrough={"rng": 0})

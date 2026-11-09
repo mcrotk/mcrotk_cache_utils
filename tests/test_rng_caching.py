@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from mcrotk_cache_utils import rng_cached_method
+from mcrotk_cache_utils import rng_cached_function, rng_cached_method
 
 
 class Sim:
@@ -149,3 +149,84 @@ def test_info_with_rng_passthrough():
     c.f(2, rng=2)
     info = c.f.cache_info()
     assert (info.hits, info.misses, info.currsize) == (1, 1, 1)
+
+
+def make_draw():
+    """A fresh rng_cached_function and the list of its runs (a function's cache lasts as long as it does)."""
+    runs = []
+
+    @rng_cached_function
+    def draw(n, rng=None):
+        runs.append(n)
+        rng = np.random.default_rng(rng)
+        return rng.normal(size=n).sum(), rng
+
+    return draw, runs
+
+
+def test_function_miss_returns_functions_own_advanced_rng():
+    draw, _ = make_draw()
+    g = np.random.default_rng(1)
+    state_before = g.bit_generator.state["state"]["state"]
+    _, r = draw(3, rng=g)
+    assert r is g and g.bit_generator.state["state"]["state"] != state_before
+
+
+@pytest.mark.parametrize("kind", RNG_KINDS)
+def test_function_hit_with_each_rng_kind(kind):
+    draw, runs = make_draw()
+    cached_value, _ = draw(3, rng=0)
+    arg = RNG_KINDS[kind]()
+    value, rng = draw(3, rng=arg)
+    assert value == cached_value and runs == [3]
+    assert isinstance(rng, np.random.Generator)
+    if kind == "generator":
+        assert rng is arg
+    if kind in DETERMINISTIC:
+        assert rng.random() == np.random.default_rng(RNG_KINDS[kind]()).random()
+
+
+def test_function_rng_not_stored_and_positional_rng():
+    draw, runs = make_draw()
+    draw(3, 1)
+    g = np.random.default_rng(2)
+    _, r = draw(3, g)
+    assert r is g and runs == [3]
+    ((key, stored),) = draw.cache.items()
+    assert key == (3,) and not any(isinstance(v, np.random.Generator) for v in stored.values)
+
+
+def test_function_custom_arg_and_output_position():
+    @rng_cached_function(rng_arg=0, rng_output=0)  # the first parameter, by position
+    def first(gen, n):
+        gen = np.random.default_rng(gen)
+        return gen, gen.random(n).sum()
+
+    g1, v1 = first(1, 4)
+    g2, v2 = first(2, 4)
+    assert v1 == v2 and isinstance(g2, np.random.Generator)
+    assert g2.random() == np.random.default_rng(2).random()
+
+
+def test_rng_static_and_class_methods():
+    class S:
+        runs = 0
+
+        @staticmethod
+        @rng_cached_function
+        def draw(n, rng=None):
+            S.runs += 1
+            rng = np.random.default_rng(rng)
+            return rng.random(n).sum(), rng
+
+        @classmethod
+        @rng_cached_function(info=True)
+        def scaled(cls, n, rng=None):
+            value, rng = cls.draw(n, rng=rng)
+            return 2 * value, rng
+
+    a, _ = S.scaled(3, rng=1)
+    g = np.random.default_rng(5)
+    b, r = S().scaled(3, rng=g)
+    assert a == b and r is g and S.runs == 1
+    assert S.scaled.cache_info().hits == 1
