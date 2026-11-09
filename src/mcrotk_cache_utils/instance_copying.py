@@ -31,7 +31,8 @@ class CacheCopyWarning(UserWarning):
     """A class with cached methods defines its own ``__copy__`` or ``__deepcopy__``.
 
     Then ``cached_method`` can't install its copy handling, and whether copies are correct
-    depends on that method. Silence with ``on_copy='manual'`` on the cached methods, or with
+    depends on that method (:func:`copy_instance` can do the copying inside it). Silence with
+    ``on_copy='manual'`` on the cached methods, or with
     ``warnings.filterwarnings('ignore', category=CacheCopyWarning)``.
     """
 
@@ -118,8 +119,8 @@ def _warn_once(cls: type, theirs: list[str]) -> None:
         f"{cls.__qualname__} defines its own {' and '.join(theirs)}, so copies of its instances don't get "
         "mcrotk_cache_utils' handling of its cached methods' caches. Make sure "
         f"{'it doesn' if len(theirs) == 1 else 'they don'}'t give the copy the original's caches or the "
-        "cachetools wrappers in the instance __dict__ (bound to the original), then set on_copy='manual' on "
-        "the cached methods to silence this warning.",
+        "cachetools wrappers in the instance __dict__ (bound to the original): copy_instance(self) makes "
+        "such a copy correctly. Then set on_copy='manual' on the cached methods to silence this warning.",
         CacheCopyWarning,
         stacklevel=_caller_outside_libraries(),
     )
@@ -158,10 +159,52 @@ setattr(_copy, _OURS, True)
 setattr(_deepcopy, _OURS, True)
 
 
-def _copy_instance(obj: Any, memo: dict[int, Any] | None) -> Any:
+def copy_instance(
+    obj: Any,
+    caches: Literal["empty", "copy"] | None = None,
+    *,
+    deep: bool = False,
+    memo: dict[int, Any] | None = None,
+) -> Any:
+    """Copy an instance with cached methods, choosing what the copy gets in their caches.
+
+    Makes the same copy as ``copy.copy(obj)`` (or ``copy.deepcopy(obj)`` with ``deep=True``)
+    does with the copy methods ``cached_method`` installs, but never calls the class's own
+    ``__copy__``/``__deepcopy__``, so it can be used inside them::
+
+        @cached_method(on_copy="manual")
+        def simulate(self, n): ...
+
+        def __copy__(self):
+            new = copy_instance(self)
+            ...  # anything else your copy needs
+            return new
+
+    Args:
+        obj: The instance to copy.
+        caches: ``'empty'`` or ``'copy'`` for every cached method's cache in the copy (see
+            ``on_copy`` in :func:`cached_method`), or ``None`` (default) to follow each method's
+            ``on_copy``, with ``'manual'`` methods' caches emptied.
+        deep: Make a deep copy.
+        memo: Inside your own ``__deepcopy__(self, memo)``, pass its ``memo`` (implies ``deep``),
+            so references shared with other parts of the object being copied stay shared.
+    """
+    if caches not in (None, "empty", "copy"):
+        raise ValueError(f"copy_instance: caches must be 'empty', 'copy' or None, got {caches!r}")
+    if memo is None and deep:
+        memo = {}
+    methods = [
+        info._replace(on_copy=caches or ("empty" if info.on_copy == "manual" else info.on_copy))
+        for _, info in cached_methods(type(obj))
+    ]
+    return _copy_instance(obj, memo, methods)
+
+
+def _copy_instance(obj: Any, memo: dict[int, Any] | None, methods: list[CachedMethodInfo] | None = None) -> Any:
     """Python's default copy (deep if ``memo`` is given), with the cache handling applied first."""
     deep = memo is not None
-    methods = [info for _, info in cached_methods(type(obj))]
+    if methods is None:
+        methods = [info for _, info in cached_methods(type(obj))]
     rv = obj.__reduce_ex__(4)
     if isinstance(rv, str):  # a global (copied by reference), as in copy.copy
         return obj

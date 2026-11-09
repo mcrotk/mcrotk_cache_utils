@@ -79,7 +79,9 @@ def cached_method(
             this method's cache: ``'empty'`` (the default: never stale, even if the copy is
             then changed), ``'copy'`` (the cached results: shared with the original by
             ``copy.copy``, deep-copied by ``deepcopy``; stale if the copy is changed, until
-            :func:`clear_caches`), or ``'manual'`` (the class's own ``__copy__`` handles it).
+            :func:`clear_caches`), or ``'manual'`` (the class's own ``__copy__`` handles it, e.g.
+            with :func:`copy_instance`). For a different choice for one copy, use
+            :func:`copy_instance`.
 
     **Copying.** The decorator gives the class a ``__copy__`` and ``__deepcopy__`` that do
     Python's usual copy but apply ``on_copy`` to each cached method's cache, and make the

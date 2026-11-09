@@ -4,7 +4,7 @@ Per-instance caches for methods, argument omission, passthrough (e.g. for RNGs) 
 """
 
 from .function_caching import cached_function
-from .instance_copying import CacheCopyWarning
+from .instance_copying import CacheCopyWarning, copy_instance
 from .method_caching import cached_method, clear_caches
 from .rng_caching import rng_cached_function, rng_cached_method
 
@@ -13,6 +13,7 @@ __all__ = [
     "cached_function",
     "cached_method",
     "clear_caches",
+    "copy_instance",
     "rng_cached_function",
     "rng_cached_method",
 ]

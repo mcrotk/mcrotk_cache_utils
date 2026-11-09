@@ -100,7 +100,7 @@ The options are the same as for methods. A function has one cache, which lives a
 - `"copy"`: the copy keeps the cached results (`copy.copy` shares the result objects with the original, `deepcopy` duplicates them). Stale if you then change the copy, until `clear_caches(copy)`.
 - `"manual"`: the class's own `__copy__` handles it.
 
-If the class already defines its own `__copy__` or `__deepcopy__`, it's kept, and you get a `CacheCopyWarning` unless the cached methods use `on_copy="manual"`. `dataclasses.replace` and `copy.replace` start with empty caches; pickling carries the caches along.
+For a different choice for one copy, use `copy_instance(obj, caches="empty" | "copy", deep=False)`. It also makes a correct copy inside a class's own `__copy__` or `__deepcopy__`: if the class already defines one, it's kept, and you get a `CacheCopyWarning` unless the cached methods use `on_copy="manual"`. `dataclasses.replace` and `copy.replace` start with empty caches; pickling carries the caches along.
 
 ## Caveats
 
