@@ -164,31 +164,37 @@ class ArgSpec:
         return param.name
 
     def _resolve_passthrough(self, passthrough: Mapping[ArgRef, int | Passthrough]) -> dict[str, Passthrough]:
+        """Check ``passthrough`` and key it by parameter name: ``{name: (output position, transform)}``."""
         if not isinstance(passthrough, Mapping):
             raise TypeError(f"{self.qualname}: passthrough must be a mapping {{argument: output position}}")
         resolved: dict[str, Passthrough] = {}
-        for ref, spec in passthrough.items():
+        for ref, entry in passthrough.items():
             name = self._resolve(ref, "passthrough", allow_var=False)
             if name in resolved:
                 raise ValueError(f"{self.qualname}: passthrough refers to {name!r} twice")
-            if isinstance(spec, tuple):
-                if len(spec) != 2:
-                    raise TypeError(
-                        f"{self.qualname}: passthrough for {name!r} must be a position or (position, transform)"
-                    )
-                position, transform = spec
-            else:
-                position, transform = spec, None
-            if isinstance(position, bool) or not isinstance(position, int):
-                raise TypeError(
-                    f"{self.qualname}: passthrough output position for {name!r} must be an int, got {position!r}"
-                )
-            if transform is not None and not callable(transform):
-                raise TypeError(f"{self.qualname}: passthrough transform for {name!r} must be callable")
+            position, transform = self._passthrough_entry(name, entry)
             if any(position == p for p, _ in resolved.values()):
                 raise ValueError(f"{self.qualname}: two passthrough arguments use output position {position}")
             resolved[name] = (position, transform)
         return resolved
+
+    def _passthrough_entry(self, name: str, entry: int | Passthrough) -> Passthrough:
+        """One passthrough value, ``position`` or ``(position, transform)``, checked, as ``(position, transform)``."""
+        if isinstance(entry, tuple):
+            if len(entry) != 2:
+                raise TypeError(
+                    f"{self.qualname}: passthrough for {name!r} must be a position or (position, transform)"
+                )
+            position, transform = entry
+        else:
+            position, transform = entry, None
+        if isinstance(position, bool) or not isinstance(position, int):
+            raise TypeError(
+                f"{self.qualname}: passthrough output position for {name!r} must be an int, got {position!r}"
+            )
+        if transform is not None and not callable(transform):
+            raise TypeError(f"{self.qualname}: passthrough transform for {name!r} must be callable")
+        return position, transform
 
     def _resolve_converters(
         self, converters: Mapping[ArgRef, Callable[[Any], Any]], omitted: set[str]

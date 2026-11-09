@@ -156,31 +156,44 @@ def cached_method(
         )
         spec = ArgSpec(func, has_self=True, omit=omit, passthrough=passthrough, key_converters=key_converters)
         attr = _cache_attr_name(func)
-
-        def get_cache(obj: Any) -> MutableMapping:
-            try:
-                instance_dict = obj.__dict__
-            except AttributeError:
-                raise TypeError(
-                    f"{spec.qualname}: {type(obj).__name__} instances have no __dict__ to hold the cache"
-                ) from None
-            cache = instance_dict.get(attr)
-            if cache is None:
-                check_copy_handling(type(obj))
-                cache = instance_dict.setdefault(attr, cache_factory())
-            elif not isinstance(cache, MutableMapping):
-                raise TypeError(f"{spec.qualname}: attribute {attr!r} is already used for something other than a cache")
-            return make_view(cache, spec.qualname) if spec.passthrough else cache
-
+        get_cache = _cache_getter(spec, attr, cache_factory)
         descriptor = cachetools.cachedmethod(get_cache, key=spec.make_key, lock=lock, condition=condition, info=info)(
             func
         )
-        add_check(descriptor, _DescriptorChecks)
-        setattr(descriptor, CACHE_ATTR, attr)
-        setattr(descriptor, ON_COPY, ("empty", False) if on_copy is None else (on_copy, True))
+        _mark_descriptor(descriptor, attr, on_copy)
         return descriptor
 
     return decorate if func is None else decorate(func)
+
+
+def _cache_getter(
+    spec: ArgSpec, attr: str, cache_factory: Callable[[], MutableMapping]
+) -> Callable[[Any], MutableMapping]:
+    """The function cachetools calls to get an instance's cache: made on first use, stored in ``__dict__[attr]``."""
+
+    def get_cache(obj: Any) -> MutableMapping:
+        try:
+            instance_dict = obj.__dict__
+        except AttributeError:
+            raise TypeError(
+                f"{spec.qualname}: {type(obj).__name__} instances have no __dict__ to hold the cache"
+            ) from None
+        cache = instance_dict.get(attr)
+        if cache is None:
+            check_copy_handling(type(obj))
+            cache = instance_dict.setdefault(attr, cache_factory())  # setdefault: another thread may have made one
+        elif not isinstance(cache, MutableMapping):
+            raise TypeError(f"{spec.qualname}: attribute {attr!r} is already used for something other than a cache")
+        return make_view(cache, spec.qualname) if spec.passthrough else cache
+
+    return get_cache
+
+
+def _mark_descriptor(descriptor: Any, attr: str, on_copy: OnCopy | None) -> None:
+    """Add our checks to cachetools' descriptor, and the markers ``clear_caches`` and copying look for."""
+    add_check(descriptor, _DescriptorChecks)
+    setattr(descriptor, CACHE_ATTR, attr)
+    setattr(descriptor, ON_COPY, ("empty", False) if on_copy is None else (on_copy, True))
 
 
 def clear_caches(obj: Any, *methods: str) -> None:

@@ -64,25 +64,35 @@ class InstallsCopyMethods:
         super().__set_name__(owner, name)  # pyright: ignore[reportAttributeAccessIssue]  (cachetools' descriptor)
         on_copy, explicit = getattr(self, ON_COPY)
         theirs = user_copy_methods(owner)
-        where = f"{owner.__qualname__}.{name}"
-        if on_copy == "manual":
-            if "__copy__" not in theirs:
-                raise TypeError(
-                    f"{where}: on_copy='manual', but {owner.__qualname__} has no __copy__ of its own, so copy.copy "
-                    "would give the copy the original's cache and run its cached methods on the original. Define "
-                    "__copy__, or use on_copy='empty' or 'copy'."
-                )
-            return
-        if theirs and explicit:
+        _check_on_copy(owner, name, on_copy, explicit, theirs)
+        if on_copy != "manual":
+            _install_copy_methods(owner, theirs)
+
+
+def _check_on_copy(owner: type, name: str, on_copy: str, explicit: bool, theirs: list[str]) -> None:
+    """Errors for an ``on_copy`` that conflicts with the class's own copy methods, or the warning for the default."""
+    where = f"{owner.__qualname__}.{name}"
+    if on_copy == "manual":
+        if "__copy__" not in theirs:
             raise TypeError(
-                f"{where}: on_copy={on_copy!r} can't take effect: {owner.__qualname__} defines its own "
-                f"{' and '.join(theirs)}. Use on_copy='manual' and handle the cache there."
+                f"{where}: on_copy='manual', but {owner.__qualname__} has no __copy__ of its own, so copy.copy "
+                "would give the copy the original's cache and run its cached methods on the original. Define "
+                "__copy__, or use on_copy='empty' or 'copy'."
             )
-        if theirs:
-            _warn_once(owner, theirs)
-        for dunder, function in (("__copy__", _copy), ("__deepcopy__", _deepcopy)):
-            if dunder not in theirs and getattr(owner, dunder, None) is not function:
-                setattr(owner, dunder, function)
+    elif theirs and explicit:
+        raise TypeError(
+            f"{where}: on_copy={on_copy!r} can't take effect: {owner.__qualname__} defines its own "
+            f"{' and '.join(theirs)}. Use on_copy='manual' and handle the cache there."
+        )
+    elif theirs:
+        _warn_once(owner, theirs)
+
+
+def _install_copy_methods(owner: type, theirs: list[str]) -> None:
+    """Give ``owner`` our ``__copy__`` and ``__deepcopy__``, except where it has its own."""
+    for dunder, function in (("__copy__", _copy), ("__deepcopy__", _deepcopy)):
+        if dunder not in theirs and getattr(owner, dunder, None) is not function:
+            setattr(owner, dunder, function)
 
 
 def user_copy_methods(cls: type) -> list[str]:
