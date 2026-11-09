@@ -15,7 +15,6 @@ import warnings
 from typing import NamedTuple
 
 import cachetools
-import numpy as np
 import pytest
 
 from mcrotk_cache_utils import CacheCopyWarning, cached_method, clear_caches, copy_instance, rng_cached_method
@@ -442,6 +441,8 @@ def test_lock_function_attribute_is_shared_by_shallow_copy():
 
 
 def test_rng_cached_method_on_copy():
+    np = pytest.importorskip("numpy")
+
     class S:
         @rng_cached_method(on_copy="copy")
         def draw(self, n, rng=None):

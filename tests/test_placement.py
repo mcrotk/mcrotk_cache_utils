@@ -1,10 +1,13 @@
 """Errors for decorators used in the wrong place: cached_function on a method, cached_method off one."""
 
 import abc
+import importlib.util
 
 import pytest
 
 from mcrotk_cache_utils import cached_function, cached_method, rng_cached_function, rng_cached_method
+
+needs_numpy = pytest.mark.skipif(importlib.util.find_spec("numpy") is None, reason="needs numpy")
 
 
 def error_text(e: BaseException) -> str:
@@ -12,7 +15,9 @@ def error_text(e: BaseException) -> str:
     return f"{e} {e.__cause__ or ''}"
 
 
-@pytest.mark.parametrize("decorator", [cached_function, cached_function(), rng_cached_function])
+@pytest.mark.parametrize(
+    "decorator", [cached_function, cached_function(), pytest.param(rng_cached_function, marks=needs_numpy)]
+)
 def test_cached_function_directly_in_class_body(decorator):
     with pytest.raises((TypeError, RuntimeError)) as e:
 
@@ -36,7 +41,7 @@ def test_cached_function_above_static_or_class_method(wrapper):
                 return x
 
 
-@pytest.mark.parametrize("decorator", [cached_method, rng_cached_method])
+@pytest.mark.parametrize("decorator", [cached_method, pytest.param(rng_cached_method, marks=needs_numpy)])
 @pytest.mark.parametrize("wrapper", [staticmethod, classmethod])
 def test_cached_method_under_static_or_class_method(decorator, wrapper):
     class C:

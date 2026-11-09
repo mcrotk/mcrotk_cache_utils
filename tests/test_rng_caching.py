@@ -1,7 +1,8 @@
-import numpy as np
 import pytest
 
 from mcrotk_cache_utils import rng_cached_function, rng_cached_method
+
+np = pytest.importorskip("numpy")
 
 
 class Sim:

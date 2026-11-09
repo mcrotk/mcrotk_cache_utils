@@ -4,7 +4,6 @@ import pickle
 from collections import OrderedDict, namedtuple
 from functools import partial
 
-import numpy as np
 import pytest
 
 from mcrotk_cache_utils import array_key, cached_function, cached_method, container_key
@@ -58,12 +57,19 @@ def test_dict_keys_are_converted_too():
     assert not same({(1, 2): "a"}, {Point(1, 2): "a"})
 
 
-@pytest.mark.parametrize("value", [1, "a", None, 2.5, b"x", np.float64(1)])
+@pytest.mark.parametrize("value", [1, "a", None, 2.5, b"x"])
 def test_other_values_unchanged(value):
     assert container_key(value) is value
 
 
+def test_numpy_scalars_unchanged():
+    np = pytest.importorskip("numpy")
+    value = np.float64(1)
+    assert container_key(value) is value
+
+
 def test_arrays_inside_are_keyed_by_content():
+    np = pytest.importorskip("numpy")
     a = np.arange(3)
     assert container_key(a) == array_key(a)
     before = container_key({"w": [a, 1]})
@@ -73,6 +79,7 @@ def test_arrays_inside_are_keyed_by_content():
 
 
 def test_object_array_inside_raises():
+    np = pytest.importorskip("numpy")
     with pytest.raises(TypeError, match="object dtype"):
         container_key([np.array([None])])
 
@@ -90,7 +97,7 @@ def test_unhashable_leaf_left_for_the_key_check():
 
 
 def test_keys_pickle():
-    for value in ([1, {"a": {2}}], Point(1, [2]), {1: np.arange(2)}):
+    for value in ([1, {"a": {2}}], Point(1, [2]), {1: frozenset({(2, 3)})}):
         key = container_key(value)
         loaded = pickle.loads(pickle.dumps(key))
         assert loaded == key and hash(loaded) == hash(key)

@@ -5,11 +5,11 @@ import pickle
 import subprocess
 import sys
 
-import numpy as np
 import pytest
 
 from mcrotk_cache_utils import cached_method, dataframe_key
 
+np = pytest.importorskip("numpy")
 pd = pytest.importorskip("pandas")
 
 

@@ -7,11 +7,11 @@ import subprocess
 import sys
 import tempfile
 
-import numpy as np
 import pytest
 
-from mcrotk_cache_utils import cached_function, cached_method, rng_cached_method
-from mcrotk_cache_utils.array_keys import array_key
+from mcrotk_cache_utils import array_key, cached_function, cached_method, rng_cached_method
+
+np = pytest.importorskip("numpy")
 
 
 class Sim:
@@ -246,7 +246,7 @@ def test_copies_with_on_copy_copy_keep_array_results():
 _CHILD = """
 import pickle, sys
 import numpy as np
-from mcrotk_cache_utils.array_keys import array_key
+from mcrotk_cache_utils import array_key
 keys = pickle.loads(sys.stdin.buffer.read())
 cache = dict.fromkeys(keys)
 fresh = [array_key(np.arange(5.0)), array_key(np.zeros(2, dtype=[("name", "i4"), ("other", "f8")]))]
