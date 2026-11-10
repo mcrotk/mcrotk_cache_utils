@@ -9,9 +9,31 @@ authors = [
     { name = "Michael C. Rotkowitz", email = "mcrotk@gmail.com" }
 ]
 requires-python = ">=3.11"
+keywords = ["cache", "caching", "memoization", "decorator", "cachetools", "numpy", "random number generator", "dataclass"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = [
     "cachetools>=8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mcrotk/mcrotk_cache_utils"
+Documentation = "https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md"
+Changelog = "https://github.com/mcrotk/mcrotk_cache_utils/releases"
+Issues = "https://github.com/mcrotk/mcrotk_cache_utils/issues"
 
 [project.optional-dependencies]
 numpy = [
