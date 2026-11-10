@@ -32,14 +32,14 @@ What this library does:
 
 ## Installation
 
-```sh
-pip install mcrotk-cache-utils
-pip install 'mcrotk-cache-utils[numpy]'    # for the RNG passthrough decorators
-pip install 'mcrotk-cache-utils[pandas]'   # for the pandas key helpers
-pip install 'mcrotk-cache-utils[numpy,pandas]'   # both
-```
+Not on PyPI yet; until it is, install from GitHub:
 
-The latest development version: `pip install "mcrotk-cache-utils @ git+https://github.com/mcrotk/mcrotk_cache_utils"`.
+```sh
+pip install "mcrotk-cache-utils @ git+https://github.com/mcrotk/mcrotk_cache_utils"
+pip install "mcrotk-cache-utils[numpy] @ git+https://github.com/mcrotk/mcrotk_cache_utils"         # for the RNG passthrough decorators
+pip install "mcrotk-cache-utils[pandas] @ git+https://github.com/mcrotk/mcrotk_cache_utils"        # for the pandas key helpers
+pip install "mcrotk-cache-utils[numpy,pandas] @ git+https://github.com/mcrotk/mcrotk_cache_utils"  # both
+```
 
 Requires Python 3.11+ and cachetools 8+ (installed with it); numpy 1.23.2+ and pandas 1.5+ only for the features that use them.
 

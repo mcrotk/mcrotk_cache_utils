@@ -176,7 +176,7 @@ class Simulation:
 - **On a miss**, the method's own outputs are returned, including the generator it advanced.
 - **On a hit**, the stored result is returned with the caller's generator passed through `np.random.default_rng`. A `Generator` comes back unchanged (nothing was drawn), and a seed or `None` comes back as a new `Generator` made from it, so the caller's next call continues from it rather than reseeding.
 
-It needs numpy (`pip install 'mcrotk-cache-utils[numpy]'`).
+It needs numpy (the `numpy` extra; see [Installation](../README.md#installation)).
 
 ### Either way
 
