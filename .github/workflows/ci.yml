@@ -26,9 +26,13 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
-        include: # one job each on macOS and Windows (version differences are covered on Ubuntu)
+        include: # the oldest and a recent Python on macOS and Windows (other versions are covered on Ubuntu)
+          - os: macos-latest
+            python-version: "3.11"
           - os: macos-latest
             python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.11"
           - os: windows-latest
             python-version: "3.14"
     runs-on: ${{ matrix.os }}
