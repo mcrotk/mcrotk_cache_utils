@@ -1,0 +1,39 @@
+name: Publish
+
+# Publishes to PyPI when a GitHub release is published (tag vX.Y.Z, matching the version in pyproject.toml).
+# Uses trusted publishing: PyPI accepts uploads from this workflow and environment, with no token stored.
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3 # no major-version tags are published
+      - name: Check the tag matches the version
+        run: test "${GITHUB_REF_NAME}" = "v$(uv version --short)"
+      - run: uv run --locked pytest
+      - run: uv build
+      - name: Check the wheel installs and imports
+        run: uv run --isolated --no-project --with dist/*.whl python -c "import mcrotk_cache_utils"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/mcrotk-cache-utils/
+    permissions:
+      id-token: write # for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
