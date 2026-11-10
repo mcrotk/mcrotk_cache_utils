@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from typing import Any, TypedDict
 
-from .cache_keys import ArgRef, Passthrough
-from .instance_copying import OnCopy
+from ...copying.copy_handling import OnCopy
+from ...keys.cache_keys import ArgRef, Passthrough
 
 
 class _Options(TypedDict, total=False):

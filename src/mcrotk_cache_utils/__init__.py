@@ -4,17 +4,17 @@ Per-instance caches for methods, argument omission, passthrough (e.g. for RNGs),
 key helpers for arrays, containers and pandas objects.
 """
 
-from .cache_controls import CacheControls, cache_controls
-from .function_caching import cached_function
-from .instance_copying import CacheCopyWarning, copy_instance
-from .key_helpers import array_key, container_key, dataframe_key, index_key, series_key
-from .method_caching import cached_method, clear_caches
-from .rng_caching import (
+from .copying.instance_copying import CacheCopyWarning, copy_instance
+from .decorators.cache_controls import CacheControls, cache_controls, clear_caches
+from .decorators.function_caching import cached_function
+from .decorators.method_caching import cached_method
+from .decorators.rng_caching import (
     rng_omit_cached_function,
     rng_omit_cached_method,
     rng_passthrough_cached_function,
     rng_passthrough_cached_method,
 )
+from .keys.converters import array_key, container_key, dataframe_key, index_key, series_key
 
 __all__ = [
     "CacheControls",

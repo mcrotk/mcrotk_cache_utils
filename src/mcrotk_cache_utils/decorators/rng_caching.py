@@ -15,15 +15,15 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
-from .cache_keys import ArgRef, Passthrough, _as_refs
-from .decorator_options import (
+from ..keys.cache_keys import ArgRef, Passthrough, _as_refs
+from .function_caching import cached_function
+from .method_caching import cached_method
+from .support.decorator_options import (
     RngOmitFunctionOptions,
     RngOmitMethodOptions,
     RngPassthroughFunctionOptions,
     RngPassthroughMethodOptions,
 )
-from .function_caching import cached_function
-from .method_caching import cached_method
 
 if TYPE_CHECKING:
     from typing_extensions import Unpack

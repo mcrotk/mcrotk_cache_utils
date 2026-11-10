@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
-from .cache_keys import ArgRef, ArgSpec, Passthrough
-from .decorator_options import FunctionOptions
-from .passthrough_cache import make_view
-from .placement_checks import FunctionNotInClassBody, add_check, reject_static_or_class_method
+from ..keys.cache_keys import ArgRef, ArgSpec, Passthrough
+from ..keys.passthrough import make_view
+from .support.decorator_options import FunctionOptions
+from .support.placement_checks import FunctionNotInClassBody, add_check, reject_static_or_class_method
 
 if TYPE_CHECKING:
     from typing_extensions import Unpack

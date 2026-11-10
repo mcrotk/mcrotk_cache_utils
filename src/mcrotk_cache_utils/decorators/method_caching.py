@@ -8,9 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
-from .cache_keys import ArgRef, ArgSpec, Passthrough
-from .decorator_options import MethodOptions
-from .instance_copying import (
+from ..copying.copy_handling import (
     CACHE_ATTR,
     ON_COPY,
     ON_COPY_VALUES,
@@ -18,8 +16,10 @@ from .instance_copying import (
     OnCopy,
     check_copy_handling,
 )
-from .passthrough_cache import make_view
-from .placement_checks import MethodInClassBody, add_check, reject_static_or_class_method
+from ..keys.cache_keys import ArgRef, ArgSpec, Passthrough
+from ..keys.passthrough import make_view
+from .support.decorator_options import MethodOptions
+from .support.placement_checks import MethodInClassBody, add_check, reject_static_or_class_method
 
 
 class _DescriptorChecks(MethodInClassBody, InstallsCopyMethods):
@@ -195,26 +195,6 @@ def _mark_descriptor(descriptor: Any, attr: str, on_copy: OnCopy | None) -> None
     add_check(descriptor, _DescriptorChecks)
     setattr(descriptor, CACHE_ATTR, attr)
     setattr(descriptor, ON_COPY, ("empty", False) if on_copy is None else (on_copy, True))
-
-
-def clear_caches(obj: Any, *methods: str) -> None:
-    """Empty ``obj``'s caches for the named cached methods, or for all of them if none are named.
-
-    Only caches made by this library's decorators are touched. Use after changing an
-    attribute that affects cached results, e.g. in a copy made with ``on_copy='copy'``.
-    """
-    found = set()
-    for cls in type(obj).__mro__:
-        for name, value in vars(cls).items():
-            attr = getattr(value, CACHE_ATTR, None)
-            if not isinstance(attr, str) or (methods and name not in methods):
-                continue
-            found.add(name)
-            if attr in getattr(obj, "__dict__", {}):
-                value.__get__(obj, cls).cache_clear()  # through cachetools, so locks and info counters are handled
-    unknown = set(methods) - found
-    if unknown:
-        raise ValueError(f"{type(obj).__name__} has no cached method(s) named {sorted(unknown)}")
 
 
 def _cache_attr_name(func: Callable[..., Any]) -> str:

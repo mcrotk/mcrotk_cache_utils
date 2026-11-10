@@ -1,11 +1,37 @@
-"""The cache view used for passthrough: strips passed-through outputs when storing, puts the caller's back on a hit."""
+"""Passthrough: the key carrying a call's passed-through values, and the cache view that stores results without them
+(and puts the caller's values back on a hit)."""
 
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Callable, Iterable, Iterator, MutableMapping
 from typing import Any, NamedTuple
 
 import cachetools
 
-from .cache_keys import PassthroughKey
+
+class PassthroughKey(tuple):
+    """A cache key that also carries the current call's passed-through argument values.
+
+    The extra values don't affect hashing or equality, so this key finds the same
+    cache entries as the plain tuple of its parts.
+    """
+
+    passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]  # {output position: (argument value, transform)}
+    _hash: int
+
+    def __new__(cls, parts: Iterable[Any], passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]):
+        key = super().__new__(cls, parts)
+        key.passthrough = passthrough
+        return key
+
+    def __hash__(self) -> int:
+        try:
+            return self._hash
+        except AttributeError:
+            self._hash = tuple.__hash__(self)
+            return self._hash
+
+    def plain(self) -> tuple:
+        """The key without the passthrough values, for storing in the cache."""
+        return tuple(self)
 
 
 class Stored(NamedTuple):

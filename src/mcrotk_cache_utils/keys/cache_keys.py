@@ -6,41 +6,15 @@ from typing import Any
 
 import cachetools.keys
 
-from .key_helpers.arrays import array_key, is_array
-from .key_helpers.containers import container_key
+from .converters.arrays import array_key, is_array
+from .converters.containers import container_key
+from .passthrough import PassthroughKey
 
 ArgRef = str | int  # an argument, by name or by position in the def line (counting self or cls)
 Passthrough = tuple[int, Callable[[Any], Any] | None]  # (output position, transform)
 
 _VAR_KINDS = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
 _CONTAINERS = (list, tuple, dict, set, frozenset)  # converted automatically when unhashable
-
-
-class PassthroughKey(tuple):
-    """A cache key that also carries the current call's passed-through argument values.
-
-    The extra values don't affect hashing or equality, so this key finds the same
-    cache entries as the plain tuple of its parts.
-    """
-
-    passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]  # {output position: (argument value, transform)}
-    _hash: int
-
-    def __new__(cls, parts: Iterable[Any], passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]):
-        key = super().__new__(cls, parts)
-        key.passthrough = passthrough
-        return key
-
-    def __hash__(self) -> int:
-        try:
-            return self._hash
-        except AttributeError:
-            self._hash = tuple.__hash__(self)
-            return self._hash
-
-    def plain(self) -> tuple:
-        """The key without the passthrough values, for storing in the cache."""
-        return tuple(self)
 
 
 class ArgSpec:
