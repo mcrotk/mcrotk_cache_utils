@@ -3,6 +3,8 @@ name = "mcrotk-cache-utils"
 version = "0.1.0"
 description = "Caching decorators for Python methods and functions: a cache per instance, easy omission or passthrough of arguments such as RNGs, safe copying."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Michael Rotkowitz", email = "mcrotk@gmail.com" }
 ]

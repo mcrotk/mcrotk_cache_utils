@@ -150,3 +150,7 @@ normalized(np.arange(5.0))  # cached: an equal array
 
 - **[User guide](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/guide.md)**: how each part works, with examples and caveats.
 - **[API reference](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/docs/reference.md)**: every function and option.
+
+## License
+
+MIT; see [LICENSE](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/LICENSE).
