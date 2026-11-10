@@ -1,5 +1,10 @@
 # mcrotk-cache-utils
 
+[![CI](https://github.com/mcrotk/mcrotk_cache_utils/actions/workflows/ci.yml/badge.svg)](https://github.com/mcrotk/mcrotk_cache_utils/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/mcrotk-cache-utils)](https://pypi.org/project/mcrotk-cache-utils/)
+[![Python](https://img.shields.io/pypi/pyversions/mcrotk-cache-utils)](https://pypi.org/project/mcrotk-cache-utils/)
+[![License](https://img.shields.io/github/license/mcrotk/mcrotk_cache_utils)](https://github.com/mcrotk/mcrotk_cache_utils/blob/main/LICENSE)
+
 Caching decorators for Python methods, built on [cachetools](https://github.com/tkem/cachetools): a cache for each instance, with nothing to set up, and simple options to leave an argument out of the key or pass it through to the result. Functions, static methods and class methods get the same handling of keys and arguments.
 
 ## What it's for
