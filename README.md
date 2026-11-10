@@ -125,7 +125,7 @@ loss, n_evals = model.loss(2.5, n_evals)  # computed: n_evals == 2
 loss, n_evals = model.loss(2.0, n_evals)  # cached: n_evals == 2, as passed in
 ```
 
-Left in the key, `n_evals` would make every call a miss; with `omit=`, the last call would return the stored count (1).
+Left in the key, `n_evals` would make every call a miss; with `omit=`, the last call would return the stored `n_evals == 1`, setting the count back. With `passthrough=`, the cached result is used without resetting the counter.
 
 ### Array arguments, and functions
 
