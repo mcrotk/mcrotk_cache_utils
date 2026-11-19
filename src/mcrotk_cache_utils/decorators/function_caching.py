@@ -26,7 +26,7 @@ def cached_function(
     func: Callable[..., Any] | None = None,
     /,
     *,
-    cache_factory: Callable[[], MutableMapping] = dict,
+    cache_factory: Callable[[], MutableMapping[Any, Any]] = dict,
     omit: ArgRef | Iterable[ArgRef] = (),
     passthrough: Mapping[ArgRef, int | Passthrough] | None = None,
     key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = None,

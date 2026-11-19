@@ -21,16 +21,16 @@ class IndexKey:
     """Stands in for a pandas Index (or MultiIndex) in a cache key."""
 
     multi: bool  # a MultiIndex (other Index types differ by dtype, and RangeIndex matches Index of int64)
-    names: tuple  # level names
-    dtypes: tuple  # level dtypes
-    data: tuple  # one entry per level, from _values_key
+    names: tuple[Any, ...]  # level names
+    dtypes: tuple[Any, ...]  # level dtypes
+    data: tuple[Any, ...]  # one entry per level, from _values_key
 
 
 @dataclass(frozen=True)
 class SeriesKey:
     """Stands in for a pandas Series in a cache key."""
 
-    name: tuple  # (name,), or () if left out
+    name: tuple[Any, ...]  # (name,), or () if left out
     dtype: Any
     data: Any  # from _values_key
     index: IndexKey | None  # None if left out
@@ -40,9 +40,9 @@ class SeriesKey:
 class DataFrameKey:
     """Stands in for a pandas DataFrame in a cache key."""
 
-    columns: tuple  # column labels, in order
-    dtypes: tuple  # column dtypes (pandas or numpy dtype objects)
-    data: tuple  # one entry per column, from _values_key
+    columns: tuple[Any, ...]  # column labels, in order
+    dtypes: tuple[Any, ...]  # column dtypes (pandas or numpy dtype objects)
+    data: tuple[Any, ...]  # one entry per column, from _values_key
     index: IndexKey | None  # None if left out
 
 

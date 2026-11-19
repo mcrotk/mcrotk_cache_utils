@@ -2,12 +2,12 @@
 (and puts the caller's values back on a hit)."""
 
 from collections.abc import Callable, Iterable, Iterator, MutableMapping
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, Self
 
 import cachetools
 
 
-class PassthroughKey(tuple):
+class PassthroughKey(tuple[Any, ...]):
     """A cache key that also carries the current call's passed-through argument values.
 
     The extra values don't affect hashing or equality, so this key finds the same
@@ -17,7 +17,7 @@ class PassthroughKey(tuple):
     passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]  # {output position: (argument value, transform)}
     _hash: int
 
-    def __new__(cls, parts: Iterable[Any], passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]):
+    def __new__(cls, parts: Iterable[Any], passthrough: dict[int, tuple[Any, Callable[[Any], Any] | None]]) -> Self:
         key = super().__new__(cls, parts)
         key.passthrough = passthrough
         return key
@@ -29,7 +29,7 @@ class PassthroughKey(tuple):
             self._hash = tuple.__hash__(self)
             return self._hash
 
-    def plain(self) -> tuple:
+    def plain(self) -> tuple[Any, ...]:
         """The key without the passthrough values, for storing in the cache."""
         return tuple(self)
 
@@ -39,10 +39,10 @@ class Stored(NamedTuple):
 
     type: type
     length: int
-    values: tuple
+    values: tuple[Any, ...]
 
 
-class PassthroughView(MutableMapping):
+class PassthroughView(MutableMapping[Any, Any]):
     """View of an instance's real cache, given to cachetools in place of the cache.
 
     cachetools hands the key built by our key function straight to the cache. That key
@@ -50,7 +50,7 @@ class PassthroughView(MutableMapping):
     into the stored result on a hit.
     """
 
-    def __init__(self, cache: MutableMapping, qualname: str):
+    def __init__(self, cache: MutableMapping[Any, Any], qualname: str):
         self._cache = cache
         self._qualname = qualname
 
@@ -126,7 +126,7 @@ class PassthroughView(MutableMapping):
         return set(indices)
 
 
-class PassthroughCacheView(PassthroughView, cachetools.Cache):
+class PassthroughCacheView(PassthroughView, cachetools.Cache[Any, Any]):
     """A PassthroughView over a cachetools ``Cache``, which is itself a ``Cache``.
 
     cachetools' ``cache_info()`` reports ``maxsize`` and ``currsize`` only for ``Cache``
@@ -148,14 +148,14 @@ class PassthroughCacheView(PassthroughView, cachetools.Cache):
         return self._cache.getsizeof(value)  # pyright: ignore[reportAttributeAccessIssue]
 
 
-def make_view(cache: MutableMapping, qualname: str) -> PassthroughView:
+def make_view(cache: MutableMapping[Any, Any], qualname: str) -> PassthroughView:
     """The view to hand to cachetools in place of ``cache``."""
     if isinstance(cache, cachetools.Cache):
         return PassthroughCacheView(cache, qualname)
     return PassthroughView(cache, qualname)
 
 
-def _rebuild(stored: Stored, passthrough: dict[int, tuple[Any, Any]]) -> tuple:
+def _rebuild(stored: Stored, passthrough: dict[int, tuple[Any, Any]]) -> tuple[Any, ...]:
     """Put the current call's passed-through values (transformed) back into a stored result."""
     inserts = {}
     for position, (value, transform) in passthrough.items():

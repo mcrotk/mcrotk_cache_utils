@@ -33,8 +33,8 @@ class ArgSpec:
         passthrough: Mapping[ArgRef, int | Passthrough] | None = None,
         key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = None,
     ):
-        self.qualname = getattr(func, "__qualname__", repr(func))
-        self.signature = inspect.signature(func)
+        self.qualname: str = getattr(func, "__qualname__", repr(func))
+        self.signature: inspect.Signature = inspect.signature(func)
         self._params = list(self.signature.parameters.values())
         self.self_name: str | None = None
         if has_self:
@@ -47,18 +47,18 @@ class ArgSpec:
             self.self_name = self._params[0].name
 
         omitted = {self._resolve(ref, "omit") for ref in _as_refs(omit)}
-        self.passthrough = self._resolve_passthrough(passthrough or {})
+        self.passthrough: dict[str, Passthrough] = self._resolve_passthrough(passthrough or {})
         both = omitted & set(self.passthrough)
         if both:
             raise ValueError(f"{self.qualname}: argument(s) {sorted(both)} given in both omit and passthrough")
-        self.converters = self._resolve_converters(key_converters or {}, omitted)
+        self.converters: dict[str, Callable[[Any], Any]] = self._resolve_converters(key_converters or {}, omitted)
 
         left_out = {self.self_name} | omitted | set(self.passthrough)  # self_name None (functions) matches nothing
-        self.key_names = tuple(p.name for p in self._params if p.name not in left_out)
+        self.key_names: tuple[str, ...] = tuple(p.name for p in self._params if p.name not in left_out)
         self._var_positional = next((p.name for p in self._params if p.kind is inspect.Parameter.VAR_POSITIONAL), None)
         self._var_keyword = next((p.name for p in self._params if p.kind is inspect.Parameter.VAR_KEYWORD), None)
 
-    def make_key(self, /, *args: Any, **kwargs: Any) -> tuple:
+    def make_key(self, /, *args: Any, **kwargs: Any) -> tuple[Any, ...]:
         """Build the cache key for a call (for a method, ``args`` starts with the instance)."""
         bound = self.signature.bind(*args, **kwargs)
         bound.apply_defaults()

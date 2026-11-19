@@ -17,7 +17,7 @@ from ...keys.cache_keys import ArgRef, Passthrough
 class _Options(TypedDict, total=False):
     """The options of both ``cached_method`` and ``cached_function``."""
 
-    cache_factory: Callable[[], MutableMapping]
+    cache_factory: Callable[[], MutableMapping[Any, Any]]
     omit: ArgRef | Iterable[ArgRef]
     passthrough: Mapping[ArgRef, int | Passthrough] | None
     key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None

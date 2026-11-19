@@ -40,7 +40,7 @@ def cached_method(
     func: Callable[..., Any] | None = None,
     /,
     *,
-    cache_factory: Callable[[], MutableMapping] = dict,
+    cache_factory: Callable[[], MutableMapping[Any, Any]] = dict,
     omit: ArgRef | Iterable[ArgRef] = (),
     passthrough: Mapping[ArgRef, int | Passthrough] | None = None,
     key_converters: Mapping[ArgRef, Callable[[Any], Any]] | None = None,
@@ -168,11 +168,11 @@ def cached_method(
 
 
 def _cache_getter(
-    spec: ArgSpec, attr: str, cache_factory: Callable[[], MutableMapping]
-) -> Callable[[Any], MutableMapping]:
+    spec: ArgSpec, attr: str, cache_factory: Callable[[], MutableMapping[Any, Any]]
+) -> Callable[[Any], MutableMapping[Any, Any]]:
     """The function cachetools calls to get an instance's cache: made on first use, stored in ``__dict__[attr]``."""
 
-    def get_cache(obj: Any) -> MutableMapping:
+    def get_cache(obj: Any) -> MutableMapping[Any, Any]:
         try:
             instance_dict = obj.__dict__
         except AttributeError:

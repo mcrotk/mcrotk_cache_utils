@@ -212,7 +212,7 @@ def _prepare(instance_dict: dict[str, Any], methods: list[CachedMethodInfo], dee
     return result
 
 
-def copy_cache(cache: MutableMapping) -> MutableMapping:
+def copy_cache(cache: MutableMapping[Any, Any]) -> MutableMapping[Any, Any]:
     """A new cache with the same entries: the cached keys and results are shared, not copied.
 
     cachetools' caches don't support ``copy.copy`` (the copy would share their internal
