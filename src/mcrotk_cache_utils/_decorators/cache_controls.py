@@ -12,7 +12,7 @@ from typing import Any, Protocol
 
 from cachetools import CacheInfo
 
-from ..copying.copy_handling import CACHE_ATTR
+from .._copying.copy_handling import CACHE_ATTR
 
 
 class CacheControls(Protocol):

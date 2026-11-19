@@ -15,7 +15,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, overload
 
-from ..keys.cache_keys import ArgRef, Passthrough, _as_refs
+from .._keys.cache_keys import ArgRef, Passthrough, as_refs
 from .function_caching import cached_function
 from .method_caching import cached_method
 from .support.decorator_options import (
@@ -69,7 +69,7 @@ def rng_omit_cached_method(
         rng_arg: The generator argument, by name or position (positions count ``self``).
             Default ``'rng'``.
     """
-    return cached_method(func, omit=(rng_arg, *_as_refs(omit)), **kwargs)
+    return cached_method(func, omit=(rng_arg, *as_refs(omit)), **kwargs)
 
 
 @overload
@@ -94,7 +94,7 @@ def rng_omit_cached_function(
         rng_arg: The generator argument, by name or position (as in the ``def`` line, from 0).
             Default ``'rng'``.
     """
-    return cached_function(func, omit=(rng_arg, *_as_refs(omit)), **kwargs)
+    return cached_function(func, omit=(rng_arg, *as_refs(omit)), **kwargs)
 
 
 # --- passthrough: functions that also return the generator ---

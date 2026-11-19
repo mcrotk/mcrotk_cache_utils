@@ -139,7 +139,7 @@ def _warn_once(cls: type, theirs: list[str]) -> None:
     )
 
 
-_PACKAGE_DIR = os.path.dirname(os.path.dirname(__file__))  # mcrotk_cache_utils/, above copying/
+_PACKAGE_DIR = os.path.dirname(os.path.dirname(__file__))  # mcrotk_cache_utils/, above _copying/
 _SKIP_DIRS = (_PACKAGE_DIR + os.sep, os.path.dirname(cachetools.__file__) + os.sep)
 _SKIP_FILES = (getattr(sys.modules.get("abc"), "__file__", None) or "",)  # ABCMeta.__new__ runs __set_name__
 

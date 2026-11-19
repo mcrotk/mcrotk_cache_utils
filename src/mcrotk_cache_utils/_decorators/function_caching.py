@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
-from ..keys.cache_keys import ArgRef, ArgSpec, Passthrough
-from ..keys.passthrough import make_view
+from .._keys.cache_keys import ArgRef, ArgSpec, Passthrough
+from .._keys.passthrough import make_view
 from .support.decorator_options import FunctionOptions
 from .support.placement_checks import FunctionNotInClassBody, add_check, reject_static_or_class_method
 

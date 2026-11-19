@@ -46,7 +46,7 @@ class ArgSpec:
                 raise TypeError(f"{self.qualname}: a cached method needs a first positional parameter (self)")
             self.self_name = self._params[0].name
 
-        omitted = {self._resolve(ref, "omit") for ref in _as_refs(omit)}
+        omitted = {self._resolve(ref, "omit") for ref in as_refs(omit)}
         self.passthrough: dict[str, Passthrough] = self._resolve_passthrough(passthrough or {})
         both = omitted & set(self.passthrough)
         if both:
@@ -210,7 +210,7 @@ def _advice(name: str) -> str:
     )
 
 
-def _as_refs(refs: ArgRef | Iterable[ArgRef]) -> tuple[ArgRef, ...]:
+def as_refs(refs: ArgRef | Iterable[ArgRef]) -> tuple[ArgRef, ...]:
     """Allow a single name or position as well as a collection of them."""
     if isinstance(refs, (str, int)):
         return (refs,)

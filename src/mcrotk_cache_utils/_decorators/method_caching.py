@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, overload
 
 import cachetools
 
-from ..copying.copy_handling import (
+from .._copying.copy_handling import (
     CACHE_ATTR,
     ON_COPY,
     ON_COPY_VALUES,
@@ -16,8 +16,8 @@ from ..copying.copy_handling import (
     OnCopy,
     check_copy_handling,
 )
-from ..keys.cache_keys import ArgRef, ArgSpec, Passthrough
-from ..keys.passthrough import make_view
+from .._keys.cache_keys import ArgRef, ArgSpec, Passthrough
+from .._keys.passthrough import make_view
 from .support.decorator_options import MethodOptions
 from .support.placement_checks import MethodInClassBody, add_check, reject_static_or_class_method
 
