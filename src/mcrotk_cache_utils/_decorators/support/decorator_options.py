@@ -40,16 +40,24 @@ class FunctionOptions(_Options, total=False):
 
 
 class RngOmitMethodOptions(MethodOptions, total=False):
+    """``rng_omit_cached_method``'s options: ``cached_method``'s, plus the generator argument ``rng_arg``."""
+
     rng_arg: ArgRef
 
 
 class RngOmitFunctionOptions(FunctionOptions, total=False):
+    """``rng_omit_cached_function``'s options: ``cached_function``'s, plus the generator argument ``rng_arg``."""
+
     rng_arg: ArgRef
 
 
 class RngPassthroughMethodOptions(RngOmitMethodOptions, total=False):
+    """``rng_passthrough_cached_method``'s options: the omit ones, plus the generator's position ``rng_output``."""
+
     rng_output: int
 
 
 class RngPassthroughFunctionOptions(RngOmitFunctionOptions, total=False):
+    """``rng_passthrough_cached_function``'s options: the omit ones, plus the generator's position ``rng_output``."""
+
     rng_output: int

@@ -86,6 +86,7 @@ class PassthroughView(MutableMapping[Any, Any]):
         return key in self._cache
 
     def clear(self) -> None:
+        """Empty the real cache (in one call, rather than MutableMapping's item-by-item default)."""
         self._cache.clear()
 
     def __getattr__(self, name: str) -> Any:
@@ -145,6 +146,7 @@ class PassthroughCacheView(PassthroughView, cachetools.Cache[Any, Any]):
     # A method, not a staticmethod as in Cache, since it delegates to the real cache (Cache
     # itself replaces it per instance when given a custom getsizeof).
     def getsizeof(self, value: Any) -> Any:  # pyright: ignore[reportIncompatibleMethodOverride]
+        """The size of ``value`` as the real cache measures it."""
         return self._cache.getsizeof(value)  # pyright: ignore[reportAttributeAccessIssue]
 
 
