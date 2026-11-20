@@ -17,6 +17,8 @@ How each part of mcrotk-cache-utils works. For every option in one place, see th
 
 ## Caching methods
 
+Use `@cached_method` to cache a method's results separately for each instance of the class:
+
 ```python
 from mcrotk_cache_utils import cached_method, clear_caches
 
@@ -127,6 +129,8 @@ A generator can't usefully be part of a cache key: it's compared by identity, no
 
 ### Functions that take a generator
 
+For a method that takes a generator (or a seed) and draws from it, use the `rng_omit_cached_method` decorator:
+
 ```python
 import numpy as np
 
@@ -187,6 +191,8 @@ For work in several processes, give each process its own generator, from `rng.sp
 Options: `rng_arg=` names the generator argument (default `"rng"`), and for the passthrough decorators `rng_output=` gives its position in the returned tuple (default `-1`, the last). All of `cached_method`'s options apply too, including further `omit=` or `passthrough=` entries. `rng_omit_cached_function` and `rng_passthrough_cached_function` are the same for functions.
 
 ## Functions, static methods and class methods
+
+Functions, as well as static and class methods, use `@cached_function` instead:
 
 ```python
 from mcrotk_cache_utils import cached_function

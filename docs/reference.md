@@ -1,6 +1,12 @@
 # API reference
 
-Everything is imported from the package: `from mcrotk_cache_utils import cached_method, ...`. For explanations and examples, see the [user guide](guide.md).
+Everything is imported from the package itself, for example:
+
+```python
+from mcrotk_cache_utils import cached_method, clear_caches
+```
+
+For explanations and examples, see the [user guide](guide.md).
 
 **Decorators**
 - [`cached_method`](#cached_method): cache a method, per instance.

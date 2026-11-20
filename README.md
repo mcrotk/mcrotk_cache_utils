@@ -50,7 +50,11 @@ Requires Python 3.11+ and cachetools 8+ (installed with it); numpy 1.23.2+ and p
 
 ## Examples
 
+Each example below defines a cached method or function, then calls it a few times; the comment on each call says whether it was computed or returned from the cache.
+
 ### Omitting arguments
+
+An argument that only affects printing, like `verbose` here, needn't be part of the key, so `omit=` leaves it out. The calls also show that arguments match however they're passed, and that each instance has its own cache:
 
 ```python
 from dataclasses import dataclass
