@@ -23,6 +23,8 @@ class PassthroughKey(tuple[Any, ...]):
         return key
 
     def __hash__(self) -> int:
+        # Saved after the first time: a call hashes its key at least twice (make_key's check that
+        # it's hashable, then the cache lookup), and hashing walks every part of the key.
         try:
             return self._hash
         except AttributeError:
@@ -137,10 +139,12 @@ class PassthroughCacheView(PassthroughView, cachetools.Cache[Any, Any]):
 
     @property
     def maxsize(self) -> Any:
+        """The real cache's ``maxsize``, for ``cache_info``."""
         return self._cache.maxsize  # pyright: ignore[reportAttributeAccessIssue]
 
     @property
     def currsize(self) -> Any:
+        """The real cache's ``currsize``, for ``cache_info``."""
         return self._cache.currsize  # pyright: ignore[reportAttributeAccessIssue]
 
     # A method, not a staticmethod as in Cache, since it delegates to the real cache (Cache

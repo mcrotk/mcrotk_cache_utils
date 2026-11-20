@@ -63,6 +63,7 @@ class InstallsCopyMethods:
     """Mixin for ``cached_method``'s descriptor: copy handling for the class, set up when the class is created."""
 
     def __set_name__(self, owner: type, name: str) -> None:
+        """Check ``on_copy`` against the class's own copy methods, and install ours unless it's ``"manual"``."""
         super().__set_name__(owner, name)  # pyright: ignore[reportAttributeAccessIssue]  (cachetools' descriptor)
         on_copy, explicit = getattr(self, ON_COPY)
         theirs = user_copy_methods(owner)
